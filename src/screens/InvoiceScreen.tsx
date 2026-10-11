@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   TouchableOpacity,
+  Modal,
+  Pressable,
   StyleSheet,
   Animated,
   Dimensions,
@@ -33,9 +35,9 @@ import * as jalaali from 'jalaali-js';
 const { width } = Dimensions.get("window");
 const MAX_ROWS = 12;
 
-const CustomDropdown = ({ label, value, options, selectedValue, onSelect, isOpen, onOpenChange }: any) => {
+const CustomDropdown = ({ label, value, options, selectedValue, onSelect, isOpen, onOpenChange, pickerRef }: any) => {
   return (
-    <View style={styles.inputGroup}>
+    <View ref={pickerRef} collapsable={false} style={styles.inputGroup}>
       {label && <CustomText style={styles.label}>{label}</CustomText>}
       <TouchableOpacity
         style={[styles.input, styles.dropdownTrigger, isOpen && styles.inputFocused]}
@@ -45,42 +47,7 @@ const CustomDropdown = ({ label, value, options, selectedValue, onSelect, isOpen
         <CustomText style={styles.dropdownTriggerText} numberOfLines={2}>{value}</CustomText>
         <Ionicons name={isOpen ? "chevron-up" : "chevron-down"} size={20} color="#fff" />
       </TouchableOpacity>
-      {isOpen && (
-        <View style={styles.dropdownInlineContent}>
-          <LinearGradient
-            colors={["#22628e", "#1f5579"]}
-            start={{ x: 1, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.dropdownList}
-          >
-            <ScrollView
-              style={styles.dropdownScroll}
-              showsVerticalScrollIndicator
-              nestedScrollEnabled
-              keyboardShouldPersistTaps="always"
-            >
-              {options.map((opt: any, index: number) => {
-                const isSelected = String(opt.value ?? "") === String(selectedValue ?? "");
-                return (
-                  <TouchableOpacity
-                    key={String(opt.value ?? index)}
-                    style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
-                    onPress={() => {
-                      onSelect(opt.value);
-                      onOpenChange(false);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <CustomText style={styles.dropdownItemText} numberOfLines={2}>{opt.label}</CustomText>
-                    {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
-                    {opt.customerCode != null && <CustomText style={styles.dropdownCodeText}>{toPersianDigits(String(opt.customerCode))}</CustomText>}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </LinearGradient>
-        </View>
-      )}
+
     </View>
   );
 };
@@ -119,6 +86,20 @@ export default function InvoiceScreen({
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const customerPickerRef = useRef<View>(null);
+  const [customerPickerPosition, setCustomerPickerPosition] = useState({ top: 0, left: 0, width: 0 });
+
+  const toggleCustomerDropdown = () => {
+    if (isCustomerDropdownOpen) {
+      setIsCustomerDropdownOpen(false);
+      return;
+    }
+    customerPickerRef.current?.measureInWindow((x, y, pickerWidth, height) => {
+      const screenHeight = Dimensions.get("window").height;
+      setCustomerPickerPosition({ top: Math.min(y + height + insets.top + 4, screenHeight - 270), left: x, width: pickerWidth });
+      setIsCustomerDropdownOpen(true);
+    });
+  };
 
   const PROFORMA_DEFAULT_NOTE =
     "به دلیل نوسانات بازار این پیش فاکتور تا زمان دریافت اسناد مالی قابل تغییر قیمت می‌باشد و فروشنده تضمینی در قبال مبلغ ندارد.";
@@ -479,7 +460,8 @@ export default function InvoiceScreen({
               >
                 <CustomDropdown
                   isOpen={isCustomerDropdownOpen}
-                  onOpenChange={setIsCustomerDropdownOpen}
+                  onOpenChange={toggleCustomerDropdown}
+                  pickerRef={customerPickerRef}
                   label="انتخاب مشتری از لیست :"
                   value={
                     selectedCustomerId
@@ -802,6 +784,38 @@ export default function InvoiceScreen({
           )}
         </View>
       </Animated.View>
+      <Modal
+        visible={isCustomerDropdownOpen}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => setIsCustomerDropdownOpen(false)}
+      >
+        <View style={styles.dropdownModalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsCustomerDropdownOpen(false)} />
+          <View style={[styles.dropdownModalContent, { top: customerPickerPosition.top, left: customerPickerPosition.left, width: customerPickerPosition.width }]}>
+            <LinearGradient
+              colors={["#22628e", "#1f5579"]}
+              start={{ x: 1, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.dropdownList}
+            >
+              <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator nestedScrollEnabled keyboardShouldPersistTaps="always">
+                {[{ label: " مشتری جدید ", value: null }, ...customers.map((c: any) => ({ label: c.name, customerCode: c.customerCode, value: c.id }))].map((opt: any, index: number) => {
+                  const isSelected = String(opt.value ?? "") === String(selectedCustomerId ?? "");
+                  return (
+                    <TouchableOpacity key={String(opt.value ?? index)} style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]} onPress={() => { handleCustomerSelect(opt.value); setIsCustomerDropdownOpen(false); }} activeOpacity={0.8}>
+                      <CustomText style={styles.dropdownItemText} numberOfLines={2}>{opt.label}</CustomText>
+                      {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
+                      {opt.customerCode != null && <CustomText style={styles.dropdownCodeText}>{toPersianDigits(String(opt.customerCode))}</CustomText>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </LinearGradient>
+          </View>
+        </View>
+      </Modal>
       <JalaliDatePicker
         visible={isDatePickerVisible}
         initialDate={invoiceDate}
@@ -925,6 +939,7 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   dropdownTrigger: {
+    minHeight: 48,
     flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
@@ -937,7 +952,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
   },
-  dropdownInlineContent: { marginTop: 8, width: "100%" },
+  dropdownModalOverlay: { flex: 1, backgroundColor: "transparent" },
+  dropdownModalContent: { position: "absolute", zIndex: 1002, elevation: 24 },
   dropdownList: {
     borderRadius: 16,
     borderWidth: 1.5,

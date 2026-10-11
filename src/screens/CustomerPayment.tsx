@@ -19,6 +19,7 @@ import CustomTextInput from "../components/CustomTextInput";
 import JalaliDatePicker from "../components/JalaliDatePicker";
 import { Customer } from "../storage/customerStorage";
 import { Payment } from "../storage/paymentStorage";
+import * as jalaali from "jalaali-js";
 import {
   formatNumber,
   getCurrentPersianDate,
@@ -35,6 +36,13 @@ type CustomerPaymentProps = {
 };
 
 const PAYMENT_METHODS = ["نقدی", "کارت به کارت", "واریز به حساب", "چک", "سایر"];
+
+const getPaymentDefaultDate = (): string => {
+  const { jy, jm, jd } = jalaali.toJalaali(new Date());
+  return toPersianDigits(
+    `${jy}/${String(jm).padStart(2, "0")}/${String(jd).padStart(2, "0")}`,
+  );
+};
 
 export default function CustomerPayment({
   customers,
@@ -68,10 +76,10 @@ export default function CustomerPayment({
   const [paymentAmount, setPaymentAmount] = useState(
     paymentToEdit ? formatNumber(paymentToEdit.amount || 0) : "",
   );
-  const [paymentDate, setPaymentDate] = useState(paymentToEdit?.date || getCurrentPersianDate());
+  const [paymentDate, setPaymentDate] = useState(paymentToEdit?.date || getPaymentDefaultDate());
   const [paymentMethod, setPaymentMethod] = useState(paymentToEdit?.method || "نقدی");
   const [bankName, setBankName] = useState(paymentToEdit?.bankName || "");
-  const [checkDate, setCheckDate] = useState(paymentToEdit?.checkDate || getCurrentPersianDate());
+  const [checkDate, setCheckDate] = useState(paymentToEdit?.checkDate || getPaymentDefaultDate());
   const [checkNumber, setCheckNumber] = useState(paymentToEdit?.checkNumber || "");
   const [paymentNote, setPaymentNote] = useState(paymentToEdit?.note || "");
   const [paymentAttachment, setPaymentAttachment] = useState<string | null>(
@@ -79,6 +87,12 @@ export default function CustomerPayment({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [datePickerTarget, setDatePickerTarget] = useState<"payment" | "check" | null>(null);
+
+  useEffect(() => {
+    const today = getPaymentDefaultDate();
+    setPaymentDate(paymentToEdit?.date || today);
+    setCheckDate(paymentToEdit?.checkDate || today);
+  }, [paymentToEdit]);
 
   useEffect(() => {
     Animated.timing(dropdownAnimation, {
@@ -130,7 +144,7 @@ export default function CustomerPayment({
       const paymentData: Payment = {
         id: paymentToEdit ? (paymentToEdit.originalId ?? paymentToEdit.id) : Date.now().toString(),
         customerId: selectedCustomer.id,
-        date: paymentDate.trim() || getCurrentPersianDate(),
+        date: paymentDate.trim() || getPaymentDefaultDate(),
         amount: numericAmount,
         method: paymentMethod,
         bankName: bankName.trim(),
@@ -176,7 +190,7 @@ export default function CustomerPayment({
           <CustomText style={styles.inputLabel}>نام مشتری *</CustomText>
           {customer ? (
             <View style={styles.customerDisplay}>
-              <Ionicons name="person-outline" size={19} color="#ffffff" />
+              <Ionicons name="person-outline" size={19} color="#fff" />
               <CustomText style={styles.customerName}>{customer.name}</CustomText>
             </View>
           ) : (
@@ -232,7 +246,7 @@ export default function CustomerPayment({
               onPress={() => setDatePickerTarget("payment")}
               accessibilityLabel="انتخاب تاریخ دریافت"
             >
-              <Ionicons name="calendar-outline" size={20} color="#38bdf8" />
+              <Ionicons name="calendar-outline" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
 
@@ -264,7 +278,7 @@ export default function CustomerPayment({
               <CustomText style={styles.inputLabel}>نام بانک</CustomText>
               <CustomTextInput
                 style={styles.input}
-                placeholder="مثال: بانک ملی"
+                placeholder=" نام بانک "
                 placeholderTextColor="#94a3b8"
                 value={bankName}
                 onChangeText={setBankName}
@@ -283,7 +297,7 @@ export default function CustomerPayment({
                   onPress={() => setDatePickerTarget("check")}
                   accessibilityLabel="انتخاب تاریخ سررسید چک"
                 >
-                  <Ionicons name="calendar-outline" size={20} color="#38bdf8" />
+                  <Ionicons name="calendar-outline" size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -336,7 +350,7 @@ export default function CustomerPayment({
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <CustomText style={styles.saveText}>
                   {paymentToEdit ? "ذخیره تغییرات" : "ثبت دریافتی"}
@@ -403,7 +417,7 @@ export default function CustomerPayment({
                       <CustomText style={styles.dropdownItemText} numberOfLines={2}>
                         {item.name}
                       </CustomText>
-                      {isSelected && <Ionicons name="checkmark" size={18} color="#ffffff" />}
+                      {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
                       {item.customerCode != null && (
                         <CustomText style={styles.dropdownCodeText}>
                           {toPersianDigits(String(item.customerCode))}
@@ -478,18 +492,22 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   selector: {
-    minHeight: 44,
+    minHeight: 48,
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
     backgroundColor: "rgba(255,255,255,0.1)",
     borderWidth: 1.5,
     borderColor: "rgba(255,255,255,0.3)",
   },
-  selectorOpen: { borderColor: "#a2c8e2" },
+  selectorOpen: {
+    borderColor: "#ffffff",
+    backgroundColor: "rgba(20, 58, 123, 0.35)",
+  },
   selectorText: { flex: 1, color: "#ffffff", fontSize: 15, lineHeight: 21, textAlign: "right" },
   placeholder: { color: "rgba(255,255,255,0.55)" },
   customerDisplay: {
@@ -540,13 +558,10 @@ const styles = StyleSheet.create({
   dateInput: { paddingLeft: 52 },
   calendarButton: {
     position: "absolute",
-    left: 4,
+    left: 8,
     zIndex: 1,
-    width: 40,
-    height: 40,
+    padding: 6,
     borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.1)",
   },
   methods: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 6, marginVertical: 6 },

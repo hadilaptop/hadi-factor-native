@@ -38,7 +38,7 @@ export default function App() {
     }
     async function setupNavBar() {
       if (Platform.OS === 'android') {
-        try { NavigationBar.setStyle('dark'); }
+        try { NavigationBar.setStyle('light'); }
         catch (error) { console.log('Navigation Bar Error:', error); }
       }
     }
@@ -193,17 +193,20 @@ export default function App() {
   return <SafeAreaProvider><SafeAreaView style={styles.container} edges={['left', 'right']}>
     <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
     {renderScreen()}
-    <BottomNav activeTab={currentScreen} onNavigate={(screen) => {
-      if (screen === 'settings') setSettingsReturnScreen(currentScreen);
-      if (screen === 'newAccount') {
-        setCustomerToEdit(null); setCustomerFormReturnScreen('dashboard');
-      }
-      if (screen === 'receipt') {
-        setSelectedCustomer(null); setPaymentToEdit(null); setCurrentScreen('customerPayment');
-        return;
-      }
-      setCurrentScreen(screen);
-    }} />
+    <BottomNav
+      activeTab={currentScreen === 'customerPayment' ? 'receipt' : currentScreen}
+      onNavigate={(screen) => {
+        if (screen === 'settings') setSettingsReturnScreen(currentScreen);
+        if (screen === 'newAccount') {
+          setCustomerToEdit(null); setCustomerFormReturnScreen('dashboard');
+        }
+        if (screen === 'receipt') {
+          setSelectedCustomer(null); setPaymentToEdit(null); setCurrentScreen('customerPayment');
+          return;
+        }
+        setCurrentScreen(screen);
+      }}
+    />
   </SafeAreaView></SafeAreaProvider>;
 }
 
