@@ -92,6 +92,8 @@ export default function InvoicePreview({
   const savedScale = useSharedValue(initialScale);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(initialTranslateY);
+  const cardHeight = useSharedValue(CARD_MIN_HEIGHT + 48);
+  const centeredTranslateY = useSharedValue(initialTranslateY);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
 
@@ -121,7 +123,7 @@ export default function InvoicePreview({
       scale.value = withTiming(initialScale, { duration: 250 });
       savedScale.value = initialScale;
       translateX.value = withTiming(0, { duration: 250 });
-      translateY.value = withTiming(initialTranslateY, { duration: 250 });
+      translateY.value = withTiming(centeredTranslateY.value, { duration: 250 });
     });
 
   const gestures = Gesture.Simultaneous(pinch, pan, doubleTap);
@@ -135,9 +137,22 @@ export default function InvoicePreview({
 
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
-      <View style={[styles.previewViewport, { height: viewportHeight }]}>
+      <View
+        style={[styles.previewViewport, { height: viewportHeight }]}
+        onLayout={(event) => {
+          centeredTranslateY.value = (event.nativeEvent.layout.height - cardHeight.value) / 2;
+          translateY.value = centeredTranslateY.value;
+        }}
+      >
         <GestureDetector gesture={gestures}>
-          <Animated.View style={[styles.previewCard, animatedCardStyle]}>
+          <Animated.View
+            onLayout={(event) => {
+              cardHeight.value = event.nativeEvent.layout.height;
+              centeredTranslateY.value = (viewportHeight - cardHeight.value) / 2;
+              translateY.value = centeredTranslateY.value;
+            }}
+            style={[styles.previewCard, animatedCardStyle]}
+          >
             <View style={[styles.invoiceInner, { borderColor: themeColors.primary }]}>
               <View style={[styles.previewHeader, { borderBottomColor: themeColors.secondary }]}>
                 <View style={styles.previewHeaderCenter}>
@@ -177,7 +192,7 @@ export default function InvoicePreview({
                 </View>
                 <View style={[styles.previewBuyerBox, { backgroundColor: themeColors.light, borderColor: themeColors.border }]}>
                   <View style={styles.buyerMainInfo}>
-                    <Text style={styles.previewBuyerName}>{buyerName || "وارد نشده"}</Text>
+                    <Text style={styles.previewBuyerName} numberOfLines={2}>{buyerName || "وارد نشده"}</Text>
                     {buyerAddress ? (
                       <Text style={styles.previewBuyerDetails}>آدرس: {buyerAddress}</Text>
                     ) : null}
@@ -243,7 +258,7 @@ export default function InvoicePreview({
                 <Text style={styles.amountInWordsText}>{amountInWords}</Text>
               </View>
 
-              <View style={[styles.previewNoteBox, { borderColor: themeColors.secondary }]}>
+              <View style={[styles.previewNoteBox,{backgroundColor: themeColors.light,borderColor: themeColors.secondary,},]}>
                 <Text style={styles.previewNoteLabel}>توضیحات:</Text>
                 <Text style={styles.previewNoteText}>{noteText}</Text>
               </View>
@@ -439,6 +454,7 @@ const styles = StyleSheet.create({
     
     color: "#0f4c75",
     textAlign: "right",
+    flexShrink: 1,
   },
   previewBuyerDetails: {
     fontFamily: "Vazirmatn",

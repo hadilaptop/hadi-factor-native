@@ -101,12 +101,12 @@ export default function CustomersScreen({
               style={styles.iconWrapper}
             >
               <View style={styles.clearBtn}>
-                <Ionicons name="close" size={16} color="#0f4c75" />
+                <Ionicons name="close" size={16} color="#1f5579" />
               </View>
             </TouchableOpacity>
           ) : (
             <View style={styles.iconWrapper}>
-              <Ionicons name="search" size={20} color="#0f4c75" />
+              <Ionicons name="search" size={20} color="#1f5579" />
             </View>
           )}
           <CustomTextInput
@@ -130,7 +130,7 @@ export default function CustomersScreen({
         showsVerticalScrollIndicator={false}
       >
         {filteredCustomers.length > 0 ? (
-          filteredCustomers.map((customer) => (
+          filteredCustomers.map((customer, index) => (
             <View key={customer.id} style={[styles.customerCardWrapper, activeDropdown === customer.id && styles.customerCardWrapperActive]}>
               <TouchableOpacity
                 activeOpacity={0.9}
@@ -144,9 +144,9 @@ export default function CustomersScreen({
                 }}
               >
                 <LinearGradient
-                  colors={['#0f4c75', '#3282b8']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
+                  colors={['#22628e', '#2f77a7']}
+                  start={index % 3 === 0 ? { x: 0, y: 0 } : index % 3 === 1 ? { x: 1, y: 0 } : { x: 0, y: 1 }}
+                  end={index % 3 === 0 ? { x: 1, y: 1 } : index % 3 === 1 ? { x: 0, y: 1 } : { x: 1, y: 0 }}
                   style={styles.cardGradient}
                 >
                   <View style={styles.avatar}>
@@ -241,7 +241,7 @@ export default function CustomersScreen({
       >
         <View style={styles.modalOverlay}>
           <LinearGradient
-            colors={['#0d2b43', '#0f4c75']}
+            colors={['#0d2b43', '#1f5579']}
             style={styles.modalBox}
           >
             <View style={styles.modalIconBg}>
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     position: 'absolute',
-    backgroundColor: '#0f4c75',
+    backgroundColor: '#1f5579',
     borderWidth: 1,
     borderColor: '#e2e5e8',
     borderRadius: 10,
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#0f4c75',
+    color: '#1f5579',
     fontSize: 16,
     marginTop: 40,
   },

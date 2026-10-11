@@ -7,24 +7,31 @@ import {
   Image,
   KeyboardAvoidingView,
   Alert,
+  Modal,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import Header from "../components/Header";
-import AnimatedScrollWrapper, { AnimatedScrollWrapperRef } from '../components/AnimatedScrollWrapper';
+import AnimatedScrollWrapper, {
+  AnimatedScrollWrapperRef,
+} from "../components/AnimatedScrollWrapper";
 
 // کامپوننت‌های سفارشی و توابع
-import CustomText from '../components/CustomText';
-import CustomTextInput from '../components/CustomTextInput';
-import { toPersianDigits } from '../utils/numberUtils';
+import CustomText from "../components/CustomText";
+import CustomTextInput from "../components/CustomTextInput";
+import { toPersianDigits } from "../utils/numberUtils";
+import { Ionicons } from "@expo/vector-icons";
 
 interface SettingsScreenProps {
   onNavigate: (screen: string) => void;
   returnScreen: string;
 }
 
-export default function SettingsScreen({ onNavigate, returnScreen }: SettingsScreenProps) {
+export default function SettingsScreen({
+  onNavigate,
+  returnScreen,
+}: SettingsScreenProps) {
   const scrollRef = useRef<AnimatedScrollWrapperRef>(null);
 
   const [theme, setTheme] = useState("blue");
@@ -33,6 +40,13 @@ export default function SettingsScreen({ onNavigate, returnScreen }: SettingsScr
   const [companyPhone, setCompanyPhone] = useState("");
   const [economicCode, setEconomicCode] = useState("");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [alertModal, setAlertModal] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "success",
+    confirmReset: false,
+  });
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -95,44 +109,61 @@ export default function SettingsScreen({ onNavigate, returnScreen }: SettingsScr
         await AsyncStorage.removeItem("companyLogo");
       }
 
-      Alert.alert("موفق", "تنظیمات با موفقیت ذخیره شد.", [
-        { text: "تایید", onPress: handleClose },
-      ]);
+      setAlertModal({
+        visible: true,
+        title: "موفق",
+        message: "تنظیمات با موفقیت ذخیره شد.",
+        type: "success",
+        confirmReset: false,
+      });
     } catch (e) {
       Alert.alert("خطا", "مشکلی در ذخیره اطلاعات پیش آمد.");
     }
   };
 
   const handleReset = () => {
-    Alert.alert(
-      "بازنشانی تنظیمات",
-      "آیا از پاک کردن تمامی تنظیمات و فرم‌ها مطمئن هستید؟",
-      [
-        { text: "انصراف", style: "cancel" },
-        {
-          text: "بله، پاک کن",
-          style: "destructive",
-          onPress: async () => {
-            setTheme("blue");
-            setCompanyName("");
-            setCompanyAddress("");
-            setCompanyPhone("");
-            setEconomicCode("");
-            setLogoPreview(null);
+    setAlertModal({
+      visible: true,
+      title: "بازنشانی تنظیمات",
+      message: "آیا از پاک کردن تمامی تنظیمات و فرم‌ها مطمئن هستید؟",
+      type: "warning",
+      confirmReset: true,
+    });
+  };
 
-            await AsyncStorage.multiRemove([
-              "invoiceTheme",
-              "companyName",
-              "companyAddress",
-              "companyPhone",
-              "companyEconomicCode",
-              "companyLogo",
-            ]);
-            Alert.alert("انجام شد", "تنظیمات بازنشانی شد.");
-          },
-        },
-      ],
-    );
+  const confirmReset = async () => {
+    setTheme("blue");
+    setCompanyName("");
+    setCompanyAddress("");
+    setCompanyPhone("");
+    setEconomicCode("");
+    setLogoPreview(null);
+
+    try {
+      await AsyncStorage.multiRemove([
+        "invoiceTheme",
+        "companyName",
+        "companyAddress",
+        "companyPhone",
+        "companyEconomicCode",
+        "companyLogo",
+      ]);
+      setAlertModal({
+        visible: false,
+        title: "",
+        message: "",
+        type: "success",
+        confirmReset: false,
+      });
+    } catch {
+      setAlertModal({
+        visible: true,
+        title: "خطا",
+        message: "بازنشانی تنظیمات انجام نشد. لطفاً دوباره تلاش کنید.",
+        type: "error",
+        confirmReset: false,
+      });
+    }
   };
 
   const renderThemeButton = (themeColor: string, colorCode: string) => (
@@ -164,7 +195,12 @@ export default function SettingsScreen({ onNavigate, returnScreen }: SettingsScr
           contentContainerStyle={styles.scrollContent}
           delay={0}
         >
-          <LinearGradient colors={["#0f4c75", "#3282b8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
+          <LinearGradient
+            colors={["#0f4c75", "#3282b8"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.card}
+          >
             <CustomText style={styles.label}>تم رنگی فاکتور :</CustomText>
             <View style={styles.themeSelector}>
               {renderThemeButton("gold", "#7e5108")}
@@ -175,7 +211,12 @@ export default function SettingsScreen({ onNavigate, returnScreen }: SettingsScr
             </View>
           </LinearGradient>
 
-          <LinearGradient colors={["#0f4c75", "#3282b8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
+          <LinearGradient
+            colors={["#0f4c75", "#3282b8"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.card}
+          >
             <View style={styles.inputGroup}>
               <CustomText style={styles.label}>نام شرکت :</CustomText>
               <CustomTextInput
@@ -206,7 +247,9 @@ export default function SettingsScreen({ onNavigate, returnScreen }: SettingsScr
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 keyboardType="phone-pad"
                 value={companyPhone}
-                onChangeText={(text: string) => setCompanyPhone(toPersianDigits(text))}
+                onChangeText={(text: string) =>
+                  setCompanyPhone(toPersianDigits(text))
+                }
               />
             </View>
 
@@ -218,7 +261,9 @@ export default function SettingsScreen({ onNavigate, returnScreen }: SettingsScr
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 keyboardType="numeric"
                 value={economicCode}
-                onChangeText={(text: string) => setEconomicCode(toPersianDigits(text))}
+                onChangeText={(text: string) =>
+                  setEconomicCode(toPersianDigits(text))
+                }
               />
             </View>
 
@@ -235,7 +280,9 @@ export default function SettingsScreen({ onNavigate, returnScreen }: SettingsScr
                     style={styles.logoPreviewImg}
                   />
                 ) : (
-                  <CustomText style={styles.logoUploadText}>انتخاب لوگو</CustomText>
+                  <CustomText style={styles.logoUploadText}>
+                    انتخاب لوگو
+                  </CustomText>
                 )}
               </TouchableOpacity>
             </View>
@@ -255,6 +302,88 @@ export default function SettingsScreen({ onNavigate, returnScreen }: SettingsScr
             </TouchableOpacity>
           </LinearGradient>
         </AnimatedScrollWrapper>
+
+        <Modal
+          visible={alertModal.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={() =>
+            setAlertModal((current) => ({ ...current, visible: false }))
+          }
+        >
+          <View style={styles.alertOverlay}>
+            <LinearGradient
+              colors={["#0d2b43", "#0f4c75"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.alertBox}
+            >
+              <View style={styles.alertIconBg}>
+                <Ionicons
+                  name={
+                    alertModal.type === "success"
+                      ? "checkmark-circle-outline"
+                      : alertModal.type === "error"
+                        ? "close-circle-outline"
+                        : "warning-outline"
+                  }
+                  size={32}
+                  color={
+                    alertModal.type === "success"
+                      ? "#10b981"
+                      : alertModal.type === "error"
+                        ? "#f87171"
+                        : "#f59e0b"
+                  }
+                />
+              </View>
+              <CustomText style={styles.alertTitle}>
+                {alertModal.title}
+              </CustomText>
+              <CustomText style={styles.alertMessage}>
+                {alertModal.message}
+              </CustomText>
+              {alertModal.confirmReset ? (
+                <View style={styles.alertActions}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={[styles.alertBtn, styles.alertCancelBtn]}
+                    onPress={() =>
+                      setAlertModal((current) => ({
+                        ...current,
+                        visible: false,
+                      }))
+                    }
+                  >
+                    <CustomText style={styles.alertBtnText}>انصراف</CustomText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={[styles.alertBtn, styles.alertConfirmBtn]}
+                    onPress={confirmReset}
+                  >
+                    <CustomText style={styles.alertBtnText}>
+                      بله، پاک کن
+                    </CustomText>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.alertBtn}
+                  onPress={() => {
+                    setAlertModal((current) => ({
+                      ...current,
+                      visible: false,
+                    }));
+                  }}
+                >
+                  <CustomText style={styles.alertBtnText}>متوجه شدم</CustomText>
+                </TouchableOpacity>
+              )}
+            </LinearGradient>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </View>
   );
@@ -380,5 +509,80 @@ const styles = StyleSheet.create({
   btnText: {
     color: "#fff",
     fontSize: 14,
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  alertBox: {
+    width: "80%",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#adc7d8",
+    paddingVertical: 20,
+    paddingHorizontal: 15,
+    alignItems: "center",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+  },
+  alertIconBg: {
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  alertTitle: {
+    fontSize: 19,
+    fontWeight: "900",
+    color: "#ffffff",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  alertMessage: {
+    fontSize: 15,
+    color: "#ffffff",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  alertActions: {
+    flexDirection: "row-reverse",
+    width: "100%",
+    gap: 10,
+    justifyContent: "center",
+  },
+  alertBtn: {
+    minWidth: "70%",
+    backgroundColor: "#145d8e",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  alertCancelBtn: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: "#64748b",
+  },
+  alertConfirmBtn: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: "#dc2626",
+  },
+  alertBtnText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "bold",
+    textAlign: "center",
   },
 });

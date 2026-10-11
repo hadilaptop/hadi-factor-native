@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   FlatList,
-  Modal,
 } from "react-native";
 import {
   toPersianDigits,formatNumber,parseNumber,convertNumberToPersianWords,
@@ -38,29 +37,50 @@ const CustomDropdown = ({ label, value, options, selectedValue, onSelect, isOpen
   return (
     <View style={styles.inputGroup}>
       {label && <CustomText style={styles.label}>{label}</CustomText>}
-      <TouchableOpacity style={[styles.input, styles.dropdownTrigger, isOpen && styles.inputFocused]} onPress={() => onOpenChange(!isOpen)} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={[styles.input, styles.dropdownTrigger, isOpen && styles.inputFocused]}
+        onPress={() => onOpenChange(!isOpen)}
+        activeOpacity={0.8}
+      >
         <CustomText style={styles.dropdownTriggerText} numberOfLines={2}>{value}</CustomText>
         <Ionicons name={isOpen ? "chevron-up" : "chevron-down"} size={20} color="#fff" />
       </TouchableOpacity>
-      <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => onOpenChange(false)}>
-        <View style={styles.dropdownModalBackdrop}>
-          <TouchableOpacity activeOpacity={1} style={StyleSheet.absoluteFill} onPress={() => onOpenChange(false)} />
-          <View style={styles.dropdownModalContent}>
-            <LinearGradient colors={["#0d2b43", "#0f4c75"]} style={styles.dropdownList}>
-              <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator nestedScrollEnabled keyboardShouldPersistTaps="always">
-                {options.map((opt: any, index: number) => {
-                  const isSelected = String(opt.value ?? "") === String(selectedValue ?? "");
-                  return <TouchableOpacity key={String(opt.value ?? index)} style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]} onPress={() => { onSelect(opt.value); onOpenChange(false); }} activeOpacity={0.8}>
+      {isOpen && (
+        <View style={styles.dropdownInlineContent}>
+          <LinearGradient
+            colors={["#22628e", "#1f5579"]}
+            start={{ x: 1, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.dropdownList}
+          >
+            <ScrollView
+              style={styles.dropdownScroll}
+              showsVerticalScrollIndicator
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="always"
+            >
+              {options.map((opt: any, index: number) => {
+                const isSelected = String(opt.value ?? "") === String(selectedValue ?? "");
+                return (
+                  <TouchableOpacity
+                    key={String(opt.value ?? index)}
+                    style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
+                    onPress={() => {
+                      onSelect(opt.value);
+                      onOpenChange(false);
+                    }}
+                    activeOpacity={0.8}
+                  >
                     <CustomText style={styles.dropdownItemText} numberOfLines={2}>{opt.label}</CustomText>
                     {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
                     {opt.customerCode != null && <CustomText style={styles.dropdownCodeText}>{toPersianDigits(String(opt.customerCode))}</CustomText>}
-                  </TouchableOpacity>;
-                })}
-              </ScrollView>
-            </LinearGradient>
-          </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </LinearGradient>
         </View>
-      </Modal>
+      )}
     </View>
   );
 };
@@ -360,7 +380,9 @@ export default function InvoiceScreen({
           {step === "form" ? (
             <View style={styles.formContainer}>
               <LinearGradient
-                colors={["#0f4c75", "#3282b8"]}
+                colors={["#1f5579", "#347dad"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.card}
               >
                 <CustomText style={styles.sectionTitle}>مشخصات فاکتور</CustomText>
@@ -450,7 +472,9 @@ export default function InvoiceScreen({
               </LinearGradient>
 
               <LinearGradient
-                colors={["#0f4c75", "#3282b8"]}
+                colors={["#1f5579", "#347dad"]}
+                start={{ x: 1, y: 0 }}
+                end={{ x: 0, y: 1 }}
                 style={[styles.card, { zIndex: isCustomerDropdownOpen ? 1000 : 10 }]}
               >
                 <CustomDropdown
@@ -477,7 +501,9 @@ export default function InvoiceScreen({
               </LinearGradient>
 
               <LinearGradient
-                colors={["#0f4c75", "#3282b8"]}
+                colors={["#1f5579", "#347dad"]}
+                start={{ x: 0, y: 1 }}
+                end={{ x: 1, y: 0 }}
                 style={[styles.card, { zIndex: 1 }]}
               >
                 <CustomText style={styles.sectionTitle}>اطلاعات خریدار</CustomText>
@@ -488,6 +514,8 @@ export default function InvoiceScreen({
                     style={[styles.input, selectedCustomerId ? { opacity: 0.7 } : {}]}
                     placeholderTextColor="rgba(255,255,255,0.45)"
                     placeholder="شرکت..."
+                    multiline
+                    textAlignVertical="top"
                     value={buyerName}
                     onChangeText={setBuyerName}
                     editable={!selectedCustomerId}
@@ -535,7 +563,9 @@ export default function InvoiceScreen({
               </LinearGradient>
 
               <LinearGradient
-                colors={["#0f4c75", "#3282b8"]}
+                colors={["#1f5579", "#347dad"]}
+                start={{ x: 1, y: 0 }}
+                end={{ x: 0, y: 1 }}
                 style={styles.card}
               >
                 <View style={styles.rowHeader}>
@@ -650,7 +680,9 @@ export default function InvoiceScreen({
               </LinearGradient>
 
               <LinearGradient
-                colors={["#0f4c75", "#3282b8"]}
+                colors={["#1f5579", "#347dad"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.card}
               >
                 <CustomText style={styles.sectionTitle}>توضیحات فاکتور</CustomText>
@@ -797,7 +829,7 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 15,
     elevation: 5,
-    shadowColor: "#0d2b43",
+    shadowColor: "#22628e",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.2,
     shadowRadius: 15,
@@ -905,9 +937,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
   },
-  dropdownAnchor: { position: "relative" },
-  dropdownModalBackdrop: { flex: 1, justifyContent: "center", paddingHorizontal: 24, backgroundColor: "rgba(0,0,0,0.45)" },
-  dropdownModalContent: { width: "100%" },
+  dropdownInlineContent: { marginTop: 8, width: "100%" },
   dropdownList: {
     borderRadius: 16,
     borderWidth: 1.5,
@@ -1076,13 +1106,13 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
     gap: 45,
     borderWidth: 2,
-    borderColor: "#3282b8",
+    borderColor: "#347dad",
   },
   circleBtnLight: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#3282b8",
+    backgroundColor: "#347dad",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1102,7 +1132,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 70,
     left: 20,
-    backgroundColor: "#0f4c75",
+    backgroundColor: "#1f5579",
     borderRadius: 12,
     padding: 10,
     elevation: 10,

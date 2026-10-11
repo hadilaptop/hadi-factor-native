@@ -8,24 +8,18 @@ import {
   Image,
   StyleSheet,
   ScrollView,
-  TextInput,
-  ActivityIndicator,
   Alert,
   Pressable,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import Header from "../components/Header";
 import CustomText from "../components/CustomText";
-import CustomTextInput from "../components/CustomTextInput";
 import CustomerStatementScreen from "./CustomerStatement";
 import {
   toPersianDigits,
   formatNumber,
-  parseNumber,
-  getCurrentPersianDate,
   getCustomerCode,
 } from "../utils/invoiceHelpers";
 import { Customer } from "../storage/customerStorage";
@@ -41,7 +35,7 @@ type CustomerLedgerScreenProps = {
     invoice?: any,
     mode?: "preview" | "form",
   ) => void;
-  onSavePayment?: (payment: any) => Promise<void> | void;
+  onOpenPayment?: (payment?: any) => void;
   onDeletePayment?: (id: string | number) => Promise<void> | void;
   onDeleteInvoice?: (id: string | number) => Promise<void> | void;
 };
@@ -53,7 +47,7 @@ export default function CustomerLedgerScreen({
   invoices = [],
   onNavigate = () => {},
   onOpenInvoice,
-  onSavePayment = async () => {},
+  onOpenPayment,
   onDeletePayment = async () => {},
   onDeleteInvoice = async () => {},
 }: CustomerLedgerScreenProps) {
@@ -109,7 +103,6 @@ export default function CustomerLedgerScreen({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuButtonRefs = useRef<Record<string, React.ElementRef<typeof TouchableOpacity> | null>>({});
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 75 });
-  const [editingPayment, setEditingPayment] = useState<any | null>(null);
   const [showStatement, setShowStatement] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
@@ -121,20 +114,6 @@ export default function CustomerLedgerScreen({
       useNativeDriver: true,
     }).start();
   }, [slideAnim]);
-
-  // Modal States
-  const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
-  const [paymentDate, setPaymentDate] = useState(getCurrentPersianDate());
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("نقدی");
-  const [checkDate, setCheckDate] = useState(getCurrentPersianDate());
-  const [checkNumber, setCheckNumber] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [paymentNote, setPaymentNote] = useState("");
-  const [paymentAttachment, setPaymentAttachment] = useState<string | null>(
-    null,
-  );
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<any | null>(null);
@@ -228,77 +207,6 @@ export default function CustomerLedgerScreen({
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleOpenNewPayment = () => {
-    setEditingPayment(null);
-    setPaymentAmount("");
-    setPaymentDate(getCurrentPersianDate());
-    setPaymentMethod("نقدی");
-    setBankName("");
-    setCheckDate(getCurrentPersianDate());
-    setCheckNumber("");
-    setPaymentNote("");
-    setPaymentAttachment(null);
-    setShowAddPaymentModal(true);
-  };
-
-  const handleOpenEditPayment = (item: any) => {
-    setEditingPayment(item);
-    setPaymentAmount(formatNumber(item.amount || 0));
-    setPaymentDate(item.date || getCurrentPersianDate());
-    setPaymentMethod(item.method || "نقدی");
-    setBankName(item.bankName || "");
-    setCheckDate(item.checkDate || getCurrentPersianDate());
-    setCheckNumber(item.checkNumber || "");
-    setPaymentNote(item.note || "");
-    setPaymentAttachment(item.attachment || null);
-    setShowAddPaymentModal(true);
-  };
-
-  const handlePickAttachment = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets[0]?.base64) {
-      setPaymentAttachment(`data:image/jpeg;base64,${result.assets[0].base64}`);
-    }
-  };
-
-  const handleSavePaymentSubmit = async () => {
-    const numericAmount = parseNumber(paymentAmount);
-    if (!numericAmount || numericAmount <= 0) {
-      Alert.alert("خطا", "لطفاً مبلغ دریافتی معتبری وارد کنید.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const paymentData = {
-        id: editingPayment ? editingPayment.originalId : Date.now().toString(),
-        customerId: customer.id,
-        date: paymentDate.trim() || getCurrentPersianDate(),
-        amount: numericAmount,
-        method: paymentMethod,
-        bankName: bankName.trim(),
-        checkDate: paymentMethod === "چک" ? checkDate : "",
-        checkNumber: paymentMethod === "چک" ? checkNumber.trim() : "",
-        note: paymentNote.trim(),
-        attachment: paymentAttachment || "",
-        createdAt: editingPayment?.rawDate || new Date().toISOString(),
-      };
-
-      await onSavePayment(paymentData);
-      setShowAddPaymentModal(false);
-    } catch (error) {
-      Alert.alert("خطا", "خطا در ثبت یا ویرایش دریافتی.");
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleConfirmDelete = async () => {
@@ -626,7 +534,7 @@ export default function CustomerLedgerScreen({
                             const orig = payments.find(
                               (p) => String(p.id) === String(item.originalId),
                             );
-                            handleOpenEditPayment(orig || item);
+                            onOpenPayment?.(orig || item);
                           }}
                         >
                           <Ionicons
@@ -847,172 +755,21 @@ export default function CustomerLedgerScreen({
       <View style={styles.bottomBar}>
         <View style={styles.bottomActionsCard}>
           <TouchableOpacity
+            style={[styles.statementCircleBtn, styles.newPaymentCircleBtn]}
+            onPress={() => onOpenPayment?.()}
+            accessibilityLabel="ثبت دریافتی جدید"
+          >
+            <Ionicons name="add" size={24} color="#ffffff" />
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.statementCircleBtn}
             onPress={() => setShowStatement(true)}
+            accessibilityLabel="نمایش صورت حساب"
           >
             <Ionicons name="analytics" size={24} color="#ffffff" />
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Modal: Add/Edit Payment */}
-      <Modal visible={showAddPaymentModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <LinearGradient
-            colors={["#0d2b43", "#0f4c75"]}
-            style={styles.paymentModalBox}
-          >
-            <View style={styles.modalHeader}>
-              <CustomText style={styles.modalHeaderTitle}>
-                {editingPayment ? `ویرایش دریافتی` : `ثبت دریافتی جدید`}
-              </CustomText>
-              <TouchableOpacity onPress={() => setShowAddPaymentModal(false)}>
-                <Ionicons name="close" size={24} color="#cbd5e1" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ maxHeight: 400 }}>
-              <CustomText style={styles.inputLabel}>
-                مبلغ دریافتی (ریال) *
-              </CustomText>
-              <CustomTextInput
-                style={styles.modalInput}
-                placeholder="مثال: ۱,۵۰۰,۰۰۰"
-                keyboardType="numeric"
-                value={paymentAmount}
-                onChangeText={(text) => {
-                  const num = parseNumber(text);
-                  setPaymentAmount(num ? formatNumber(num) : "");
-                }}
-              />
-
-              <CustomText style={styles.inputLabel}>تاریخ دریافت *</CustomText>
-              <CustomTextInput
-                style={styles.modalInput}
-                placeholder="۱۴۰۳/۰۵/۱۵"
-                value={paymentDate}
-                onChangeText={setPaymentDate}
-              />
-
-              <CustomText style={styles.inputLabel}>روش دریافت</CustomText>
-              <View style={styles.pillsGrid}>
-                {["نقدی", "کارت به کارت", "واریز به حساب", "چک", "سایر"].map(
-                  (m) => (
-                    <TouchableOpacity
-                      key={m}
-                      style={[
-                        styles.pill,
-                        paymentMethod === m && styles.pillActive,
-                      ]}
-                      onPress={() => setPaymentMethod(m)}
-                    >
-                      <CustomText
-                        style={[
-                          styles.pillText,
-                          paymentMethod === m && styles.pillTextActive,
-                        ]}
-                      >
-                        {m}
-                      </CustomText>
-                    </TouchableOpacity>
-                  ),
-                )}
-              </View>
-
-              {paymentMethod === "چک" && (
-                <View style={styles.checkSection}>
-                  <CustomText style={styles.inputLabel}>شماره چک</CustomText>
-                  <CustomTextInput
-                    style={styles.modalInput}
-                    placeholder="شماره چک / صیادی"
-                    value={checkNumber}
-                    onChangeText={setCheckNumber}
-                  />
-
-                  <CustomText style={styles.inputLabel}>نام بانک</CustomText>
-                  <CustomTextInput
-                    style={styles.modalInput}
-                    placeholder="مثال: بانک ملی"
-                    value={bankName}
-                    onChangeText={setBankName}
-                  />
-
-                  <CustomText style={styles.inputLabel}>
-                    تاریخ سررسید
-                  </CustomText>
-                  <CustomTextInput
-                    style={styles.modalInput}
-                    placeholder="۱۴۰۳/۰۶/۲۰"
-                    value={checkDate}
-                    onChangeText={setCheckDate}
-                  />
-                </View>
-              )}
-
-              <CustomText style={styles.inputLabel}>توضیحات / بابت</CustomText>
-              <TextInput
-                style={[styles.modalInput, styles.textArea]}
-                placeholder="توضیحات..."
-                placeholderTextColor="#94a3b8"
-                multiline
-                numberOfLines={3}
-                value={paymentNote}
-                onChangeText={setPaymentNote}
-              />
-
-              <CustomText style={styles.inputLabel}>پیوست تصویر سند</CustomText>
-              {paymentAttachment ? (
-                <View style={styles.attPreviewBox}>
-                  <Image
-                    source={{ uri: paymentAttachment }}
-                    style={styles.attImage}
-                  />
-                  <TouchableOpacity
-                    style={styles.removeAttBtn}
-                    onPress={() => setPaymentAttachment(null)}
-                  >
-                    <CustomText style={styles.removeAttText}>
-                      🗑️ حذف تصویر
-                    </CustomText>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.fileDropzone}
-                  onPress={handlePickAttachment}
-                >
-                  <Ionicons name="camera-outline" size={22} color="#38bdf8" />
-                  <CustomText style={styles.dropzoneText}>
-                    انتخاب عکس فیش یا چک
-                  </CustomText>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => setShowAddPaymentModal(false)}
-              >
-                <CustomText style={styles.cancelBtnText}>انصراف</CustomText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.submitBtn]}
-                onPress={handleSavePaymentSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <CustomText style={styles.submitBtnText}>
-                    ثبت دریافتی
-                  </CustomText>
-                )}
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-        </View>
-      </Modal>
 
       {/* Lightbox Modal */}
       <Modal visible={!!selectedImage} transparent animationType="fade">
@@ -1385,6 +1142,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   bottomActionsCard: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#ffffff",
     borderRadius: 30,
     padding: 4,
@@ -1399,6 +1158,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#0f4c75",
     justifyContent: "center",
     alignItems: "center",
+  },
+  newPaymentCircleBtn: {
+    backgroundColor: "#10b981",
+    marginRight: 10,
   },
   notFoundContainer: {
     flex: 1,
