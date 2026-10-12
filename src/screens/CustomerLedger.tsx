@@ -260,7 +260,6 @@ return (
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabsContainer}
-          style={{ direction: "rtl" }}
         >
           <TouchableOpacity
             style={[
@@ -428,7 +427,7 @@ return (
                       )}
                     </View>
 
-                    <View style={styles.typeCol}>
+                    <View style={[styles.typeCol, isProforma && styles.typeColProforma]}>
                       <View
                         style={[
                           styles.typeBadge,
@@ -447,10 +446,11 @@ return (
                               : isInvoice
                                 ? styles.badgeInvoiceText
                                 : styles.badgePaymentText,
+                            isProforma && styles.proformaTypeBadgeText,
                           ]}
                         >
                           {isProforma
-                            ? "📋 پیش‌ فاکتور"
+                              ? "📋 پیش‌ فاکتور"
                             : isInvoice
                               ? "📄 فاکتور فروش"
                               : `💵 ${item.method || "نقدی"}`}
@@ -646,7 +646,7 @@ return (
                     {isInvoice && (
                       <View style={styles.miniInvoiceBox}>
                         <View style={styles.miniHeader}>
-                          <CustomText style={[styles.miniCol, { flex: 2 }]}>
+                          <CustomText style={[styles.miniCol, { flex: 2, textAlign: "right" }]}>
                             شرح کالا
                           </CustomText>
                           <CustomText
@@ -660,7 +660,7 @@ return (
                           <CustomText
                             style={[
                               styles.miniCol,
-                              { flex: 1.5, textAlign: "right" },
+                              { flex: 1.5, textAlign: "left" },
                             ]}
                           >
                             مبلغ (ریال)
@@ -687,7 +687,7 @@ return (
                               <CustomText
                                 style={[
                                   styles.miniCell,
-                                  { flex: 1.5, textAlign: "right" },
+                                  { flex: 1.5, textAlign: "left" },
                                 ]}
                               >
                                 {typeof it === "object" && it.unitPrice
@@ -855,7 +855,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: "#ffffff",
-    fontSize: 13,
+    fontSize: 14,
   },
   filterArrowBtn: {
     padding: 6,
@@ -899,7 +899,6 @@ const styles = StyleSheet.create({
   },
   filterOption: {
     flexDirection: "row",
-    direction: "ltr",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 8,
@@ -912,7 +911,7 @@ const styles = StyleSheet.create({
   },
   filterOptionText: {
     color: "#ffffff",
-    fontSize: 13,
+    fontSize: 14,
     textAlign: "right",
     flex: 1,
   },
@@ -944,8 +943,7 @@ const styles = StyleSheet.create({
     elevation: 30,
   },
   cardMainRow: {
-    direction: "rtl",
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
   },
@@ -953,8 +951,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   cardContent: {
-    direction: "rtl",
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     gap: 10,
     flex: 1,
   },
@@ -963,7 +960,10 @@ const styles = StyleSheet.create({
   },
   dateText: {
     color: "#ffffff",
-    fontSize: 13,
+    fontSize: 14,
+    width: 100,
+    height : 32 ,
+    textAlign: "center",
     backgroundColor: "rgba(255, 255, 255, 0.15)",
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -971,42 +971,51 @@ const styles = StyleSheet.create({
   },
   invNumBadge: {
     marginTop: 4,
-    width: 80,
+    width: 100,
     height: 24,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 6,
   },
   invNumText: {
-    fontSize: 11,
+    fontSize: 12,
     color: "#075985",
   },
   typeCol: {
     gap: 4,
   },
+  typeColProforma: {
+    alignItems: "center",
+  },
   typeBadge: {
     width: 132,
     height: 32,
-    alignItems: "center",
     justifyContent: "center",
     borderRadius: 8,
   },
   typeBadgeText: {
-    fontSize: 12,
+
+    fontSize: 14,
     flexShrink: 0,
     includeFontPadding: false,
   },
+  proformaTypeBadgeText: {
+     textAlign: "center",
+  },
   badgeInvoice: { backgroundColor: "#e0f2fe" },
-  badgeInvoiceText: { color: "#075985" },
+  badgeInvoiceText: { color: "#075985" , textAlign: "center"},
   badgePayment: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderWidth: 1,
     borderColor: "#52dc45",
   },
-  badgePaymentText: { color: "#ffffff" },
+  badgePaymentText: { color: "#ffffff" , textAlign: "center"},
   badgeProforma: { backgroundColor: "#fffcee" },
   badgeProformaText: { color: "#3e3b04" },
   nonBindingTag: {
+    width: 132,
+    height : 24,
+    alignItems: "center",
     backgroundColor: "#fef3c7",
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -1015,6 +1024,7 @@ const styles = StyleSheet.create({
   nonBindingText: {
     color: "#92400e",
     fontSize: 10,
+
   },
   actionsCol: {
     alignItems: "center",
@@ -1057,7 +1067,6 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   expandedBody: {
-    direction: "rtl",
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
@@ -1065,44 +1074,39 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   detailsBox: {
-    direction: "rtl",
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     padding: 10,
     borderRadius: 8,
   },
   detailRowBetween: {
-    direction: "rtl",
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     justifyContent: "space-between",
   },
-  detailLabel: { color: "#ffffff", fontSize: 12 },
-  amountValue: { color: "#38ef7d", fontSize: 13 },
-  checkSubDetails: { direction: "rtl", alignItems: "flex-start", marginTop: 6, gap: 4 },
-  subDetailText: { color: "#cbd5e1", fontSize: 11 },
+  detailLabel: { color: "#ffffff", fontSize: 14 },
+  amountValue: { color: "#38ef7d", fontSize: 15 },
+  checkSubDetails: { alignItems: "flex-start", marginTop: 6, gap: 4 },
+  subDetailText: { color: "#cbd5e1", fontSize: 12 },
   miniInvoiceBox: {
     backgroundColor: "#f8fafc",
     borderRadius: 8,
     padding: 8,
   },
   miniHeader: {
-    direction: "rtl",
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     borderBottomWidth: 1,
     borderColor: "#cbd5e1",
     paddingBottom: 4,
   },
-  miniCol: { fontSize: 11, color: "#475569" },
+  miniCol: { fontSize: 12, color: "#475569" },
   miniRow: {
-    direction: "rtl",
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     paddingVertical: 4,
     borderBottomWidth: 0.5,
     borderColor: "#e2e8f0",
   },
-  miniCell: { fontSize: 11, color: "#334155" },
+  miniCell: { fontSize: 12, color: "#334155" },
   miniFooter: {
-    direction: "rtl",
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 6,
@@ -1110,16 +1114,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#dbeafe",
     borderRadius: 6,
   },
-  miniFooterLabel: { fontSize: 11, color: "#0369a1", textAlign: "right" },
-  miniFooterVal: { fontSize: 11, color: "#0369a1", textAlign: "left" },
+  miniFooterLabel: { fontSize: 12, color: "#0369a1", textAlign: "right" },
+  miniFooterVal: { fontSize: 12, color: "#0369a1", textAlign: "left" },
   noteBox: {
-    direction: "rtl",
     alignItems: "flex-start",
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     padding: 8,
     borderRadius: 8,
   },
-  noteText: { color: "#cbd5e1", fontSize: 11 },
+  noteText: { color: "#cbd5e1", fontSize: 12 },
   attachmentBox: {
     width: 100,
     height: 80,

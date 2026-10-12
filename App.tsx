@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, StatusBar, View, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, StatusBar, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
-import * as NavigationBar from 'expo-navigation-bar';
 import HomeScreen from './src/screens/HomeScreen';
 import AccountScreen from './src/screens/AccountScreen';
 import CustomersScreen from './src/screens/CustomersScreen';
@@ -37,12 +36,6 @@ export default function App() {
       await Font.loadAsync({ Vazirmatn: require('./assets/fonts/Vazirmatn-FD-Bold.ttf') });
       setFontsLoaded(true);
     }
-    async function setupNavBar() {
-      if (Platform.OS === 'android') {
-        try { NavigationBar.setStyle('light'); }
-        catch (error) { console.log('Navigation Bar Error:', error); }
-      }
-    }
     async function loadCustomers() {
       try {
         const savedCustomers = await getCustomers();
@@ -55,7 +48,6 @@ export default function App() {
       finally { setCustomersLoaded(true); }
     }
     loadAppFonts();
-    setupNavBar();
     loadCustomers();
   }, []);
 
