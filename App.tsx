@@ -9,7 +9,7 @@ import CustomersScreen from './src/screens/CustomersScreen';
 import InvoicesScreen from './src/screens/InvoiceScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import CustomerLedger from './src/screens/CustomerLedger';
-import CustomerStatement from './src/screens/CustomerStatement';
+import CustomerFullStatement from './src/screens/CustomerFullStatement';
 import CustomerPayment from './src/screens/CustomerPayment';
 import BottomNav from './src/components/BottomNav';
 import { Customer, getCustomers, saveCustomer, deleteCustomer } from './src/storage/customerStorage';
@@ -30,6 +30,7 @@ export default function App() {
   const [selectedInvoice, setSelectedInvoice] = useState<StoredInvoice | null>(null);
   const [invoiceMode, setInvoiceMode] = useState<"preview" | "form" | null>(null);
   const [customersLoaded, setCustomersLoaded] = useState(false);
+  const [invoiceReturnScreen, setInvoiceReturnScreen] = useState('dashboard');
 
   useEffect(() => {
     async function loadAppFonts() {
@@ -142,6 +143,7 @@ export default function App() {
         return <HomeScreen onNavigate={(screen: string) => {
           if (screen === 'newAccount') setCustomerFormReturnScreen('dashboard');
           if (screen === 'invoice') {
+            setInvoiceReturnScreen('dashboard');
             setSelectedCustomer(null); setSelectedInvoice(null); setInvoiceMode(null);
           }
           setCurrentScreen(screen);
@@ -162,10 +164,10 @@ export default function App() {
           onDeleteInvoice={handleDeleteInvoice} onOpenPayment={handleOpenCustomerPayment}
           onNavigate={setCurrentScreen} onOpenInvoice={(customer, invoice, mode) => {
             setSelectedCustomer(customer); setSelectedInvoice(invoice ?? null);
-            setInvoiceMode(mode ?? null); setCurrentScreen('invoice');
+            setInvoiceMode(mode ?? null); setInvoiceReturnScreen('customerLedger'); setCurrentScreen('invoice');
           }} /> : null;
       case 'customerStatement':
-        return selectedCustomer ? <CustomerStatement customer={selectedCustomer} payments={payments}
+        return selectedCustomer ? <CustomerFullStatement customer={selectedCustomer} payments={payments}
           invoices={invoices} onBack={() => setCurrentScreen('customerLedger')}
           onNavigate={setCurrentScreen}
           onSaveSettlement={async (settlement) => { await handleSavePayment(settlement); }} /> : null;
@@ -176,7 +178,7 @@ export default function App() {
             setCurrentScreen(selectedCustomer ? 'customerLedger' : 'customers');
           }} onSavePayment={handleSavePayment} />;
       case 'invoice':
-        return <InvoicesScreen onNavigate={setCurrentScreen} initialCustomer={selectedCustomer}
+        return <InvoicesScreen onNavigate={setCurrentScreen} returnScreen={invoiceReturnScreen} initialCustomer={selectedCustomer}
           customers={customers} onInvoiceSaved={handleSaveInvoice}
           invoiceToEdit={selectedInvoice} initialMode={invoiceMode} />;
       case 'settings':

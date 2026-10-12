@@ -269,22 +269,31 @@ export default function SettingsScreen({
 
             <View style={styles.inputGroup}>
               <CustomText style={styles.label}>لوگوی شرکت :</CustomText>
-              <TouchableOpacity
-                style={styles.logoUploadBtn}
-                onPress={handleLogoSelect}
-                activeOpacity={0.8}
-              >
-                {logoPreview ? (
+              {logoPreview ? (
+                <View style={styles.logoPreviewBox}>
                   <Image
                     source={{ uri: logoPreview }}
                     style={styles.logoPreviewImg}
                   />
-                ) : (
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={styles.logoRemoveBtn}
+                    onPress={() => setLogoPreview(null)}
+                  >
+                    <CustomText style={styles.logoRemoveBtnText}>حذف لوگو</CustomText>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.logoUploadBtn}
+                  onPress={handleLogoSelect}
+                  activeOpacity={0.8}
+                >
                   <CustomText style={styles.logoUploadText}>
                     انتخاب لوگو
                   </CustomText>
-                )}
-              </TouchableOpacity>
+                </TouchableOpacity>
+              )}
             </View>
           </LinearGradient>
 
@@ -476,10 +485,38 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 15,
   },
+  logoPreviewBox: {
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    padding: 15,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+    borderStyle: "dashed",
+    gap: 15,
+    marginTop: 10,
+  },
   logoPreviewImg: {
-    width: "100%",
-    height: "100%",
+    width: 130,
+    height: 130,
+    borderRadius: 15,
     resizeMode: "cover",
+  },
+  logoRemoveBtn: {
+    backgroundColor: "#ef4444",
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    elevation: 3,
+    shadowColor: "#ef4444",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
+  logoRemoveBtnText: {
+    color: "#ffffff",
+    fontSize: 14,
   },
   actionCard: {
     flexDirection: "row-reverse",

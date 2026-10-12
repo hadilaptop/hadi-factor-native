@@ -58,6 +58,7 @@ export default function InvoiceScreen({
   initialCustomer = null,
   invoiceToEdit = null,
   initialMode = null,
+  returnScreen = 'dashboard',
   customers = [
     {
       id: "1",
@@ -197,8 +198,13 @@ export default function InvoiceScreen({
   }, [slideAnim, bottomBarAnim]);
 
   const handleClose = () => {
+    if (step === "preview" && initialMode !== "preview") {
+      setStep("form");
+      return;
+    }
+
     scrollRef.current?.close(() => {
-      onNavigate("dashboard");
+      onNavigate(returnScreen);
     });
   };
 
@@ -351,6 +357,7 @@ export default function InvoiceScreen({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <AnimatedScrollWrapper
+          key={step}
           ref={scrollRef}
           scrollEnabled={step === "form"}
           style={{ flex: 1, transform: [{ translateX: slideAnim }] }}

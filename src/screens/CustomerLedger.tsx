@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+﻿import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Animated,
@@ -16,13 +16,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../components/Header";
 import CustomText from "../components/CustomText";
-import CustomerStatementScreen from "./CustomerStatement";
 import {
   toPersianDigits,
   formatNumber,
   getCustomerCode,
 } from "../utils/invoiceHelpers";
 import { Customer } from "../storage/customerStorage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type CustomerLedgerScreenProps = {
   customer: Customer;
@@ -103,7 +103,10 @@ export default function CustomerLedgerScreen({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuButtonRefs = useRef<Record<string, React.ElementRef<typeof TouchableOpacity> | null>>({});
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 75 });
-  const [showStatement, setShowStatement] = useState(false);
+
+  const insets = useSafeAreaInsets();
+  const safePaddingBottom = insets.bottom > 0 ? insets.bottom + 5 : 10;
+  const bottomNavHeight = 55 + safePaddingBottom;
 
   const slideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
 
@@ -240,19 +243,7 @@ export default function CustomerLedgerScreen({
     );
   }
 
-  if (showStatement) {
-    return (
-      <CustomerStatementScreen
-        customer={customer}
-        payments={payments}
-        invoices={invoices}
-        onBack={() => setShowStatement(false)}
-        onNavigate={onNavigate}
-      />
-    );
-  }
-
-  return (
+return (
     <View style={styles.container}>
       {/* Header */}
       <Header
@@ -263,7 +254,8 @@ export default function CustomerLedgerScreen({
       />
 
       {/* Filter & Tabs Bar */}
-      <Animated.View style={[styles.filterBar, { transform: [{ translateX: slideAnim }] }]}>
+      <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
+        <LinearGradient colors={["#22628e", "#2f77a7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.filterBar}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -330,6 +322,7 @@ export default function CustomerLedgerScreen({
         >
           <Ionicons name="swap-vertical" size={22} color="#ffffff" />
         </TouchableOpacity>
+      </LinearGradient>
       </Animated.View>
 
       {/* All Filters Dropdown Menu */}
@@ -400,7 +393,7 @@ export default function CustomerLedgerScreen({
             </CustomText>
           </View>
         ) : (
-          filteredTransactions.map((item) => {
+          filteredTransactions.map((item, index) => {
             const isInvoice = item.kind === "invoice";
             const isProforma = isInvoice && item.type === "پیش فاکتور";
             const isPayment = item.kind === "payment";
@@ -408,7 +401,7 @@ export default function CustomerLedgerScreen({
             const isMenuOpen = openMenuId === item.id;
 
             return (
-              <View key={item.id} style={[styles.card, isMenuOpen && styles.cardMenuOpen]}>
+              <LinearGradient key={item.id} colors={['#22628e', '#2f77a7']} start={index % 3 === 0 ? { x: 0, y: 0 } : index % 3 === 1 ? { x: 1, y: 0 } : { x: 0, y: 1 }} end={index % 3 === 0 ? { x: 1, y: 1 } : index % 3 === 1 ? { x: 0, y: 1 } : { x: 1, y: 0 }} style={[styles.card, isMenuOpen && styles.cardMenuOpen]}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={styles.cardMainRow}
@@ -745,30 +738,26 @@ export default function CustomerLedgerScreen({
                     )}
                   </View>
                 )}
-              </View>
+              </LinearGradient>
             );
           })
         )}
       </Animated.ScrollView>
 
       {/* Floating Statement Circular Button */}
-      <View style={styles.bottomBar}>
-        <View style={styles.bottomActionsCard}>
+      <View style={[styles.bottomBar, { bottom: bottomNavHeight + 20 }]}>
+        <LinearGradient
+          colors={["#3282b8", "#0f4c75"]}
+          style={styles.statementCircleBtn}
+        >
           <TouchableOpacity
-            style={[styles.statementCircleBtn, styles.newPaymentCircleBtn]}
-            onPress={() => onOpenPayment?.()}
-            accessibilityLabel="ثبت دریافتی جدید"
-          >
-            <Ionicons name="add" size={24} color="#ffffff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.statementCircleBtn}
-            onPress={() => setShowStatement(true)}
+            style={styles.statementCircleTouch}
+            onPress={() => onNavigate?.("customerStatement")}
             accessibilityLabel="نمایش صورت حساب"
           >
-            <Ionicons name="analytics" size={24} color="#ffffff" />
+            <Ionicons name="document-text-outline" size={26} color="#ffffff" />
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       </View>
 
       {/* Lightbox Modal */}
@@ -839,7 +828,6 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#3282b8",
     marginHorizontal: 15,
     marginTop: 10,
     marginBottom: 5,
@@ -847,7 +835,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     zIndex: 2,
     elevation: 2,
-  },  tabsContainer: {
+  },
+  tabsContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -940,7 +929,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   listContent: {
-    paddingBottom: 90,
+    paddingBottom: 410,
   },
   emptyBox: {
     padding: 40,
@@ -1136,32 +1125,31 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     position: "absolute",
-    bottom: 25,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-  },
-  bottomActionsCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 30,
-    padding: 4,
-    borderWidth: 2,
-    borderColor: "#3282b8",
-    elevation: 8,
+    left: 18,
+    right: undefined,
+    alignItems: "flex-start",
+    zIndex: 5,
   },
   statementCircleBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#0f4c75",
+    width: 52,
+    borderWidth: 2,
+    borderColor: "#ffffff",
+    height: 52,
+    borderRadius: 26,
     justifyContent: "center",
     alignItems: "center",
+    overflow: "hidden",
+    elevation: 8,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.28,
+    shadowRadius: 5,
   },
-  newPaymentCircleBtn: {
-    backgroundColor: "#10b981",
-    marginRight: 10,
+  statementCircleTouch: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   notFoundContainer: {
     flex: 1,
