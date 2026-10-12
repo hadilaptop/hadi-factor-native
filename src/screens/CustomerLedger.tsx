@@ -404,7 +404,7 @@ return (
               <LinearGradient key={item.id} colors={['#22628e', '#2f77a7']} start={index % 3 === 0 ? { x: 0, y: 0 } : index % 3 === 1 ? { x: 1, y: 0 } : { x: 0, y: 1 }} end={index % 3 === 0 ? { x: 1, y: 1 } : index % 3 === 1 ? { x: 0, y: 1 } : { x: 1, y: 0 }} style={[styles.card, isMenuOpen && styles.cardMenuOpen]}>
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  style={styles.cardMainRow}
+                  style={[styles.cardMainRow, isPayment && styles.cardMainRowPayment]}
                   onPress={() => toggleExpand(item.id)}
                 >
                   <View style={styles.cardContent}>
@@ -660,7 +660,7 @@ return (
                           <CustomText
                             style={[
                               styles.miniCol,
-                              { flex: 1.5, textAlign: "left" },
+                              { flex: 1.5, textAlign: "right" },
                             ]}
                           >
                             مبلغ (ریال)
@@ -687,7 +687,7 @@ return (
                               <CustomText
                                 style={[
                                   styles.miniCell,
-                                  { flex: 1.5, textAlign: "left" },
+                                  { flex: 1.5, textAlign: "right" },
                                 ]}
                               >
                                 {typeof it === "object" && it.unitPrice
@@ -711,14 +711,6 @@ return (
                             {toPersianDigits(formatNumber(item.amount))} ریال
                           </CustomText>
                         </View>
-                      </View>
-                    )}
-
-                    {!!item.note && (
-                      <View style={styles.noteBox}>
-                        <CustomText style={styles.noteText}>
-                          📝 توضیحات: {toPersianDigits(item.note)}
-                        </CustomText>
                       </View>
                     )}
 
@@ -952,12 +944,17 @@ const styles = StyleSheet.create({
     elevation: 30,
   },
   cardMainRow: {
-    flexDirection: "row-reverse",
+    direction: "rtl",
+    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
+  cardMainRowPayment: {
+    alignItems: "flex-start",
+  },
   cardContent: {
-    flexDirection: "row-reverse",
+    direction: "rtl",
+    flexDirection: "row",
     gap: 10,
     flex: 1,
   },
@@ -974,8 +971,10 @@ const styles = StyleSheet.create({
   },
   invNumBadge: {
     marginTop: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    width: 80,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 6,
   },
   invNumText: {
@@ -986,12 +985,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   typeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    width: 132,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 8,
   },
   typeBadgeText: {
-    fontSize: 13,
+    fontSize: 12,
+    flexShrink: 0,
+    includeFontPadding: false,
   },
   badgeInvoice: { backgroundColor: "#e0f2fe" },
   badgeInvoiceText: { color: "#075985" },
@@ -1054,6 +1057,7 @@ const styles = StyleSheet.create({
     marginLeft: 15,
   },
   expandedBody: {
+    direction: "rtl",
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
@@ -1061,17 +1065,19 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   detailsBox: {
+    direction: "rtl",
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     padding: 10,
     borderRadius: 8,
   },
   detailRowBetween: {
+    direction: "rtl",
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  detailLabel: { color: "#cbd5e1", fontSize: 12 },
+  detailLabel: { color: "#ffffff", fontSize: 12 },
   amountValue: { color: "#38ef7d", fontSize: 13 },
-  checkSubDetails: { marginTop: 6, gap: 4 },
+  checkSubDetails: { direction: "rtl", alignItems: "flex-start", marginTop: 6, gap: 4 },
   subDetailText: { color: "#cbd5e1", fontSize: 11 },
   miniInvoiceBox: {
     backgroundColor: "#f8fafc",
@@ -1079,6 +1085,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   miniHeader: {
+    direction: "rtl",
     flexDirection: "row",
     borderBottomWidth: 1,
     borderColor: "#cbd5e1",
@@ -1086,6 +1093,7 @@ const styles = StyleSheet.create({
   },
   miniCol: { fontSize: 11, color: "#475569" },
   miniRow: {
+    direction: "rtl",
     flexDirection: "row",
     paddingVertical: 4,
     borderBottomWidth: 0.5,
@@ -1093,16 +1101,20 @@ const styles = StyleSheet.create({
   },
   miniCell: { fontSize: 11, color: "#334155" },
   miniFooter: {
+    direction: "rtl",
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 6,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderColor: "#bae6fd",
+    padding: 8,
+    backgroundColor: "#dbeafe",
+    borderRadius: 6,
   },
-  miniFooterLabel: { fontSize: 11, color: "#0369a1" },
-  miniFooterVal: { fontSize: 11, color: "#0369a1" },
+  miniFooterLabel: { fontSize: 11, color: "#0369a1", textAlign: "right" },
+  miniFooterVal: { fontSize: 11, color: "#0369a1", textAlign: "left" },
   noteBox: {
+    direction: "rtl",
+    alignItems: "flex-start",
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     padding: 8,
     borderRadius: 8,
