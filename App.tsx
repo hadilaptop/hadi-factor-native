@@ -161,8 +161,7 @@ export default function App() {
       case 'customerStatement':
         return selectedCustomer ? <CustomerFullStatement customer={selectedCustomer} payments={payments}
           invoices={invoices} onBack={() => setCurrentScreen('customerLedger')}
-          onNavigate={setCurrentScreen}
-          onSaveSettlement={async (settlement) => { await handleSavePayment(settlement); }} /> : null;
+          onNavigate={setCurrentScreen} /> : null;
       case 'customerPayment':
         return <CustomerPayment customers={customers} customer={selectedCustomer}
           paymentToEdit={paymentToEdit} onBack={() => {

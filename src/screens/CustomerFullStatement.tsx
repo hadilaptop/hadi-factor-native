@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
+import { exportViewFile } from '../services/documentExport';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,7 +8,6 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +23,6 @@ type CustomerFullStatementProps = {
   invoices?: any[];
   onBack: () => void;
   onNavigate?: (screen: string) => void;
-  onSaveSettlement?: (settlement: any) => Promise<void> | void;
 };
 
 export default function CustomerFullStatement({
@@ -32,7 +31,6 @@ export default function CustomerFullStatement({
   invoices = [],
   onBack,
   onNavigate,
-  onSaveSettlement = async () => {},
 }: CustomerFullStatementProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -43,6 +41,7 @@ export default function CustomerFullStatement({
   const [showDateModal, setShowDateModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState<'share' | 'save' | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const statementCaptureRef = useRef<View>(null);
 
   const insets = useSafeAreaInsets();
   const safePaddingBottom = insets.bottom > 0 ? insets.bottom + 5 : 10;
@@ -228,35 +227,16 @@ export default function CustomerFullStatement({
     }
   };
 
-  const handleRegisterSettlement = () => {
-    Alert.alert('ثبت تسویه حساب', 'آیا از ثبت تسویه حساب تا این تاریخ اطمینان دارید؟', [
-      { text: 'انصراف', style: 'cancel' },
-      {
-        text: 'بله، ثبت شود',
-        onPress: async () => {
-          const currentBalance = endBalance;
-          if (currentBalance === 0) {
-            Alert.alert('اطلاع', 'حساب در حال حاضر صفر است و نیازی به تسویه ندارد.');
-            return;
-          }
-          const settlementPayment = {
-            customerId: customer.id,
-            date: getCurrentPersianDate(),
-            amount: currentBalance,
-            method: 'تسویه حساب',
-            note: 'تسویه حساب سیستمی',
-            createdAt: new Date().toISOString(),
-          };
-          await onSaveSettlement(settlementPayment);
-          showToast('تسویه حساب با موفقیت ثبت شد.');
-        },
-      },
-    ]);
-  };
-
-  const handleExport = (type: 'png' | 'pdf') => {
+  const handleExport = async (type: 'png' | 'pdf') => {
+    const action = showExportModal;
     setShowExportModal(null);
-    showToast(type === 'pdf' ? 'فایل PDF آماده شد.' : 'تصویر خروجی آماده شد.');
+    if (action !== 'share' && action !== 'save') return;
+    await exportViewFile({
+      viewRef: statementCaptureRef,
+      format: type,
+      action,
+      filename: `صورت-حساب-${customer?.name || 'مشتری'}`,
+    });
   };
 
   return (
@@ -264,20 +244,14 @@ export default function CustomerFullStatement({
       <Header title={customer?.name} subtitle="صورت حساب" onBack={onBack} iconName="arrow-back" />
 
       {/* Action Filter Bar */}
-      <View style={styles.filterBar}>
+      <View style={[styles.filterBar, { direction: 'ltr' }]}>
         <View style={styles.tabsRow}>
           <TouchableOpacity
-            style={[styles.tabBtn, (startDate || endDate) && styles.tabBtnActive]}
-            onPress={() => {
-              setTempStartDate(startDate || getCurrentPersianDate());
-              setTempEndDate(endDate || getCurrentPersianDate());
-              setShowDateModal(true);
-            }}
+            style={styles.sortBtn}
+            onPress={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
           >
-            <Ionicons name="calendar-outline" size={16} color="#ffffff" />
-            <CustomText style={styles.tabBtnText}>تاریخ</CustomText>
+            <Ionicons name="swap-vertical" size={18} color="#ffffff" />
           </TouchableOpacity>
-
           <TouchableOpacity style={styles.tabBtn} onPress={toggleAllExpanded}>
             <Ionicons
               name={isAnyExpanded ? 'chevron-up' : 'chevron-down'}
@@ -285,17 +259,18 @@ export default function CustomerFullStatement({
               color="#ffffff"
             />
           </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.tabBtn, styles.settlementBtn]} onPress={handleRegisterSettlement}>
-            <CustomText style={styles.tabBtnText}>ثبت تسویه حساب</CustomText>
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
-          style={styles.sortBtn}
-          onPress={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+          style={[styles.tabBtn, (startDate || endDate) && styles.tabBtnActive]}
+          onPress={() => {
+            setTempStartDate(startDate || getCurrentPersianDate());
+            setTempEndDate(endDate || getCurrentPersianDate());
+            setShowDateModal(true);
+          }}
         >
-          <Ionicons name="swap-vertical" size={18} color="#ffffff" />
+          <Ionicons name="calendar-outline" size={16} color="#ffffff" />
+          <CustomText style={styles.tabBtnText}>تاریخ</CustomText>
         </TouchableOpacity>
       </View>
 
@@ -316,7 +291,7 @@ export default function CustomerFullStatement({
                 if (viewportHeight.value > 0) updateCenteredPosition(viewportHeight.value);
               }}
             >
-              <View style={styles.statementCard}>
+              <View ref={statementCaptureRef} collapsable={false} style={styles.statementCard}>
           <View style={styles.cardHeader}>
             <CustomText style={styles.cardTitle}>صورت حساب {customer?.name}</CustomText>
             {isFiltered && (
@@ -555,8 +530,6 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     padding: 6,
     borderRadius: 12,
-    zIndex: 10,
-    elevation: 10,
   },
   tabsRow: {
     flexDirection: 'row',
@@ -578,9 +551,6 @@ const styles = StyleSheet.create({
   tabBtnText: {
     color: '#ffffff',
     fontSize: 12,
-  },
-  settlementBtn: {
-    backgroundColor: '#10b981',
   },
   sortBtn: {
     width: 32,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { exportViewFile } from "../services/documentExport";
 import {
   View,
   TouchableOpacity,
@@ -85,6 +86,8 @@ export default function InvoiceScreen({
   const [step, setStep] = useState(initialMode === "preview" ? "preview" : "form");
   const [isSaving, setIsSaving] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportAction, setExportAction] = useState<"share" | "save">("share");
+  const invoiceCaptureRef = useRef<View>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
   const customerPickerRef = useRef<View>(null);
@@ -341,8 +344,14 @@ export default function InvoiceScreen({
     }
   };
 
-  const handleExport = (format: "pdf" | "png") => {
+  const handleExport = async (format: "pdf" | "png") => {
     setShowExportMenu(false);
+    await exportViewFile({
+      viewRef: invoiceCaptureRef,
+      format,
+      action: exportAction,
+      filename: `فاکتور-${invoiceNumber || "جدید"}`,
+    });
   };
 
   return (
@@ -687,6 +696,7 @@ export default function InvoiceScreen({
             </View>
           ) : (
             <InvoicePreview
+              captureTargetRef={invoiceCaptureRef}
               invoiceType={invoiceType}
               invoiceTheme={invoiceTheme}
               sellerName={sellerName}
@@ -762,14 +772,20 @@ export default function InvoiceScreen({
 
               <TouchableOpacity
                 style={styles.circleBtnLight}
-                onPress={() => setShowExportMenu(!showExportMenu)}
+                onPress={() => {
+                  setExportAction("share");
+                  setShowExportMenu(!showExportMenu);
+                }}
               >
                 <Ionicons name="share-social-outline" size={24} color="#fff" />
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.circleBtnLight}
-                onPress={() => setShowExportMenu(!showExportMenu)}
+                onPress={() => {
+                  setExportAction("save");
+                  setShowExportMenu(!showExportMenu);
+                }}
               >
                 <Ionicons name="download-outline" size={24} color="#fff" />
               </TouchableOpacity>

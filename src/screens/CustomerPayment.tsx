@@ -17,6 +17,7 @@ import Header from "../components/Header";
 import CustomText from "../components/CustomText";
 import CustomTextInput from "../components/CustomTextInput";
 import JalaliDatePicker from "../components/JalaliDatePicker";
+import AnimatedScrollWrapper from "../components/AnimatedScrollWrapper";
 import { Customer } from "../storage/customerStorage";
 import { Payment } from "../storage/paymentStorage";
 import * as jalaali from "jalaali-js";
@@ -171,7 +172,7 @@ export default function CustomerPayment({
         onBack={onBack}
         iconName="arrow-back"
       />
-      <ScrollView
+      <AnimatedScrollWrapper
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -359,7 +360,7 @@ export default function CustomerPayment({
             </TouchableOpacity>
           </View>
         </LinearGradient>
-      </ScrollView>
+      </AnimatedScrollWrapper>
 
       <Modal
         visible={customerPickerVisible}

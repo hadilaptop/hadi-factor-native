@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
+import Reanimated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../components/Header";
 import CustomText from "../components/CustomText";
@@ -100,7 +101,7 @@ export default function CustomerLedgerScreen({
   const [expandedItems, setExpandedItems] = useState<{
     [key: string]: boolean;
   }>({});
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuButtonRefs = useRef<Record<string, React.ElementRef<typeof TouchableOpacity> | null>>({});
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 75 });
 
@@ -108,15 +109,21 @@ export default function CustomerLedgerScreen({
   const safePaddingBottom = insets.bottom > 0 ? insets.bottom + 5 : 10;
   const bottomNavHeight = 55 + safePaddingBottom;
 
-  const slideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
+  const filterBarSlideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
+  const listSlideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
 
   useEffect(() => {
-    Animated.timing(slideAnim, {
+    Animated.timing(filterBarSlideAnim, {
       toValue: 0,
       duration: 250,
       useNativeDriver: true,
     }).start();
-  }, [slideAnim]);
+    Animated.timing(listSlideAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [filterBarSlideAnim, listSlideAnim]);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<any | null>(null);
@@ -254,7 +261,7 @@ return (
       />
 
       {/* Filter & Tabs Bar */}
-      <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
+      <Animated.View style={{ transform: [{ translateX: filterBarSlideAnim }] }}>
         <LinearGradient colors={["#22628e", "#2f77a7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.filterBar}>
         <ScrollView
           horizontal
@@ -264,28 +271,14 @@ return (
           <TouchableOpacity
             style={[
               styles.tabBtn,
-              styles.tabGroup,
-              activeTab === "all" && styles.tabBtnActive,
+              activeTab === "proformas" && styles.tabBtnActive,
             ]}
             onPress={() => {
-              setActiveTab("all");
-              setShowAllFilterMenu((prev) => !prev);
-            }}
-          >
-            <Ionicons name="filter-outline" size={16} color="#ffffff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.tabBtn,
-              activeTab === "payments" && styles.tabBtnActive,
-            ]}
-            onPress={() => {
-              setActiveTab("payments");
+              setActiveTab("proformas");
               setShowAllFilterMenu(false);
             }}
           >
-            <CustomText style={styles.tabText}>دریافتی</CustomText>
+            <CustomText style={styles.tabText}>پیش فاکتور</CustomText>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -304,15 +297,30 @@ return (
           <TouchableOpacity
             style={[
               styles.tabBtn,
-              activeTab === "proformas" && styles.tabBtnActive,
+              activeTab === "payments" && styles.tabBtnActive,
             ]}
             onPress={() => {
-              setActiveTab("proformas");
+              setActiveTab("payments");
               setShowAllFilterMenu(false);
             }}
           >
-            <CustomText style={styles.tabText}>پیش فاکتور</CustomText>
+            <CustomText style={styles.tabText}>دریافتی</CustomText>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabBtn,
+              styles.tabGroup,
+              activeTab === "all" && styles.tabBtnActive,
+            ]}
+            onPress={() => {
+              setActiveTab("all");
+              setShowAllFilterMenu((prev) => !prev);
+            }}
+          >
+            <Ionicons name="filter-outline" size={16} color="#ffffff" />
+          </TouchableOpacity>
+
         </ScrollView>
 
         <TouchableOpacity
@@ -382,7 +390,7 @@ return (
 
       {/* Transactions List */}
       <Animated.ScrollView
-        style={[styles.listContainer, { transform: [{ translateX: slideAnim }] }]}
+        style={[styles.listContainer, { transform: [{ translateX: listSlideAnim }] }]}
         contentContainerStyle={styles.listContent}
       >
         {filteredTransactions.length === 0 ? (
@@ -400,7 +408,13 @@ return (
             const isMenuOpen = openMenuId === item.id;
 
             return (
-              <LinearGradient key={item.id} colors={['#22628e', '#2f77a7']} start={index % 3 === 0 ? { x: 0, y: 0 } : index % 3 === 1 ? { x: 1, y: 0 } : { x: 0, y: 1 }} end={index % 3 === 0 ? { x: 1, y: 1 } : index % 3 === 1 ? { x: 0, y: 1 } : { x: 1, y: 0 }} style={[styles.card, isMenuOpen && styles.cardMenuOpen]}>
+              <Reanimated.View
+                key={`${activeTab}-${item.id}`}
+                entering={FadeInDown.duration(220)}
+                exiting={FadeOutUp.duration(160)}
+                layout={LinearTransition.duration(280)}
+              >
+              <LinearGradient colors={['#22628e', '#2f77a7']} start={index % 3 === 0 ? { x: 0, y: 0 } : index % 3 === 1 ? { x: 1, y: 0 } : { x: 0, y: 1 }} end={index % 3 === 0 ? { x: 1, y: 1 } : index % 3 === 1 ? { x: 0, y: 1 } : { x: 1, y: 0 }} style={[styles.card, isMenuOpen && styles.cardMenuOpen]}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={[styles.cardMainRow, isPayment && styles.cardMainRowPayment]}
@@ -470,7 +484,10 @@ return (
                   <View style={styles.actionsCol}>
                     <TouchableOpacity
                       style={styles.accordionArrow}
-                      onPress={() => toggleExpand(item.id)}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        toggleExpand(item.id);
+                      }}
                     >
                       <Ionicons
                         name={isExpanded ? "chevron-up" : "chevron-down"}
@@ -670,7 +687,7 @@ return (
                           item.items.map((it: any, idx: number) => (
                             <View key={idx} style={styles.miniRow}>
                               <CustomText
-                                style={[styles.miniCell, { flex: 2 }]}
+                                style={[styles.miniCell, { flex: 2, textAlign: "right" }]}
                               >
                                 {typeof it === "object" ? it.desc : it}
                               </CustomText>
@@ -731,6 +748,7 @@ return (
                   </View>
                 )}
               </LinearGradient>
+              </Reanimated.View>
             );
           })
         )}

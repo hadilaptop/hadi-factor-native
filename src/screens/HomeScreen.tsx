@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Platform,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,6 +41,29 @@ const [currentDate] = useState(() => {
   });
 
   const displayCustomerCount = toPersianDigits(customerCount || 0);
+  const card1Anim = useRef(new Animated.Value(185)).current;
+  const card2Anim = useRef(new Animated.Value(185)).current;
+  const card3Anim = useRef(new Animated.Value(185)).current;
+
+  useEffect(() => {
+    Animated.stagger(70, [
+      Animated.timing(card1Anim, {
+        toValue: 0,
+        duration: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(card2Anim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(card3Anim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [card1Anim, card2Anim, card3Anim]);
 
   return (
     <View style={styles.dashboardAppContainer}>
@@ -60,67 +84,73 @@ const [currentDate] = useState(() => {
         <View style={styles.dashContent}>
           <View style={styles.dashGrid}>
             
-            <TouchableOpacity activeOpacity={0.8} onPress={() => onNavigate("invoice")} style={styles.cardWrapper}>
-              <LinearGradient
-                colors={['#3282b8', '#0d2b43']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.dashCard}
-              >
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardIcon}>
-                    <Ionicons name="stats-chart" size={20} color="#ffffff" />
+            <Animated.View style={{ transform: [{ translateX: card1Anim }] }}>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => onNavigate("invoice")} style={styles.cardWrapper}>
+                <LinearGradient
+                  colors={['#3282b8', '#0d2b43']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.dashCard}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardIcon}>
+                      <Ionicons name="stats-chart" size={20} color="#ffffff" />
+                    </View>
+                    <CustomText style={styles.cardTitle}>فاکتور جدید</CustomText>
                   </View>
-                  <CustomText style={styles.cardTitle}>فاکتور جدید</CustomText>
-                </View>
-                <View style={styles.cardBody}>
-                  <CustomText style={styles.cardCount}>صدور سریع فاکتور</CustomText>
-                  <CustomText style={styles.cardDesc}>صدور پیش‌فاکتور و فاکتور فروش</CustomText>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+                  <View style={styles.cardBody}>
+                    <CustomText style={styles.cardCount}>صدور سریع فاکتور</CustomText>
+                    <CustomText style={styles.cardDesc}>صدور پیش‌فاکتور و فاکتور فروش</CustomText>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
 
-            <TouchableOpacity activeOpacity={0.8} onPress={() => onNavigate("customers")} style={styles.cardWrapper}>
-              <LinearGradient
-                colors={['#0d2b43', '#0f4c75']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.dashCard}
-              >
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardIcon}>
-                    <Ionicons name="people" size={22} color="#ffffff" />
+            <Animated.View style={{ transform: [{ translateX: card2Anim }] }}>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => onNavigate("customers")} style={styles.cardWrapper}>
+                <LinearGradient
+                  colors={['#0d2b43', '#0f4c75']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.dashCard}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardIcon}>
+                      <Ionicons name="people" size={22} color="#ffffff" />
+                    </View>
+                    <CustomText style={styles.cardTitle}>مدیریت حساب‌ها</CustomText>
                   </View>
-                  <CustomText style={styles.cardTitle}>مدیریت حساب‌ها</CustomText>
-                </View>
-                <View style={styles.cardBody}>
-                  <CustomText style={styles.cardCount}>
-                    {!isInitialized ? "در حال به‌روزرسانی..." : `تعداد ${displayCustomerCount} مشتری`}
-                  </CustomText>
-                  <CustomText style={styles.cardDesc}>مشاهده صورتحساب و پرداختی‌ها</CustomText>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+                  <View style={styles.cardBody}>
+                    <CustomText style={styles.cardCount}>
+                      {!isInitialized ? "در حال به‌روزرسانی..." : `تعداد ${displayCustomerCount} مشتری`}
+                    </CustomText>
+                    <CustomText style={styles.cardDesc}>مشاهده صورتحساب و پرداختی‌ها</CustomText>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
 
-            <TouchableOpacity activeOpacity={0.8} onPress={() => onNavigate("newAccount")} style={styles.cardWrapper}>
-              <LinearGradient
-                colors={['#0f4c75', '#3282b8']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.dashCard}
-              >
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardIcon}>
-                     <Ionicons name="person-add" size={20} color="#ffffff" />
+            <Animated.View style={{ transform: [{ translateX: card3Anim }] }}>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => onNavigate("newAccount")} style={styles.cardWrapper}>
+                <LinearGradient
+                  colors={['#0f4c75', '#3282b8']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.dashCard}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardIcon}>
+                      <Ionicons name="person-add" size={20} color="#ffffff" />
+                    </View>
+                    <CustomText style={styles.cardTitle}>حساب جدید</CustomText>
                   </View>
-                  <CustomText style={styles.cardTitle}>حساب جدید</CustomText>
-                </View>
-                <View style={styles.cardBody}>
-                  <CustomText style={styles.cardCount}>ثبت مشتری جدید</CustomText>
-                  <CustomText style={styles.cardDesc}>افزودن اطلاعات برای صدور فاکتور</CustomText>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+                  <View style={styles.cardBody}>
+                    <CustomText style={styles.cardCount}>ثبت مشتری جدید</CustomText>
+                    <CustomText style={styles.cardDesc}>افزودن اطلاعات برای صدور فاکتور</CustomText>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
 
           </View>
         </View>
