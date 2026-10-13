@@ -20,6 +20,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Path, Circle, Polyline } from "react-native-svg";
 import Header from "../components/Header";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AnimatedScrollWrapper, {
@@ -78,11 +79,13 @@ export default function InvoiceScreen({
   ],
 }: any) {
   const slideAnim = useRef(new Animated.Value(width)).current;
-  const bottomBarAnim = useRef(new Animated.Value(100)).current;
+  const bottomBarAnim = useRef(new Animated.Value(150)).current;
+  const formActionsAnim = useRef(new Animated.Value(-120)).current;
+  const previewActionsAnim = useRef(new Animated.Value(-120)).current;
   const scrollRef = useRef<AnimatedScrollWrapperRef>(null);
   const insets = useSafeAreaInsets();
   const safePaddingBottom = insets.bottom > 0 ? insets.bottom + 5 : 10;
-  const bottomNavHeight = 55 + safePaddingBottom;
+  const bottomNavHeight = 45 + safePaddingBottom;
   const [step, setStep] = useState(initialMode === "preview" ? "preview" : "form");
   const [isSaving, setIsSaving] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -200,15 +203,48 @@ export default function InvoiceScreen({
     ]).start();
   }, [slideAnim, bottomBarAnim]);
 
+  useEffect(() => {
+    if (step !== "form") {
+      formActionsAnim.setValue(-120);
+      return;
+    }
+
+    formActionsAnim.setValue(-120);
+    const animation = Animated.timing(formActionsAnim, {
+      toValue: 0,
+      duration: 300,
+      delay: 80,
+      useNativeDriver: true,
+    });
+    animation.start();
+
+    return () => animation.stop();
+  }, [step, formActionsAnim]);
+
+  useEffect(() => {
+    if (step !== "preview") {
+      previewActionsAnim.setValue(-120);
+      return;
+    }
+
+    previewActionsAnim.setValue(-120);
+    const animation = Animated.timing(previewActionsAnim, {
+      toValue: 0,
+      duration: 300,
+      delay: 80,
+      useNativeDriver: true,
+    });
+    animation.start();
+
+    return () => animation.stop();
+  }, [step, previewActionsAnim]);
+
   const handleClose = () => {
     if (step === "preview" && initialMode !== "preview") {
       setStep("form");
       return;
     }
-
-    scrollRef.current?.close(() => {
       onNavigate(returnScreen);
-    });
   };
 
   const grandTotal = rows.reduce((acc: number, row: any) => {
@@ -723,32 +759,55 @@ export default function InvoiceScreen({
         style={[
           styles.bottomBar,
           {
-            bottom: bottomNavHeight + 20,
+            bottom: bottomNavHeight + 20 ,
             transform: [{ translateY: bottomBarAnim }],
           },
         ]}
       >
-        <View style={styles.actionCard}>
+        <View style={[styles.actionCard, step === "form" ? styles.formActionCard : styles.previewActionCard]}>
           {step === "form" ? (
             <>
-              <TouchableOpacity
-                style={styles.circleBtnLight}
-                onPress={() => setStep("preview")}
+              <Animated.View
+                style={[
+                  styles.formActionButtons,
+                  { transform: [{ translateX: formActionsAnim }] },
+                ]}
               >
-                <Ionicons name="eye-outline" size={24} color="#fff" />
-              </TouchableOpacity>
+                <LinearGradient
+                  colors={["#3282b8", "#0f4c75"]}
+                  style={styles.statementCircleBtn}
+                >
+                  <TouchableOpacity
+                    style={styles.statementCircleTouch}
+                    onPress={() => setStep("preview")}
+                  >
+                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                      <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                      <Circle cx={12} cy={12} r={3} stroke="#ffffff" strokeWidth={2.5} />
+                    </Svg>
+                  </TouchableOpacity>
+                </LinearGradient>
 
-              <TouchableOpacity
-                style={styles.circleBtnGreen}
-                onPress={handleSaveToDatabase}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Ionicons name="checkmark-outline" size={28} color="#fff" />
-                )}
-              </TouchableOpacity>
+                <LinearGradient
+                  colors={["#10b981", "#059669"]}
+                  style={styles.statementCircleBtn}
+                >
+                  <TouchableOpacity
+                    style={styles.statementCircleTouch}
+                    onPress={handleSaveToDatabase}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                        <Path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                        <Polyline points="22,4 12,14.01 9,11.01" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    )}
+                  </TouchableOpacity>
+                </LinearGradient>
+              </Animated.View>
             </>
           ) : (
             <>
@@ -770,39 +829,58 @@ export default function InvoiceScreen({
                 </View>
               )}
 
-              <TouchableOpacity
-                style={styles.circleBtnLight}
-                onPress={() => {
-                  setExportAction("share");
-                  setShowExportMenu(!showExportMenu);
-                }}
+              <Animated.View
+                style={[
+                  styles.previewActionButtons,
+                  { transform: [{ translateX: previewActionsAnim }] },
+                ]}
               >
-                <Ionicons name="share-social-outline" size={24} color="#fff" />
-              </TouchableOpacity>
+                <LinearGradient colors={["#3282b8", "#0f4c75"]} style={styles.statementCircleBtn}>
+                  <TouchableOpacity
+                    style={styles.statementCircleTouch}
+                    onPress={() => {
+                      setExportAction("save");
+                      setShowExportMenu(!showExportMenu);
+                    }}
+                  >
+                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                      <Polyline points="7 10 12 15 17 10" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M12 15V3" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  </TouchableOpacity>
+                </LinearGradient>
 
-              <TouchableOpacity
-                style={styles.circleBtnLight}
-                onPress={() => {
-                  setExportAction("save");
-                  setShowExportMenu(!showExportMenu);
-                }}
-              >
-                <Ionicons name="download-outline" size={24} color="#fff" />
-              </TouchableOpacity>
+                <LinearGradient colors={["#3282b8", "#0f4c75"]} style={styles.statementCircleBtn}>
+                  <TouchableOpacity
+                    style={styles.statementCircleTouch}
+                    onPress={() => {
+                      setExportAction("share");
+                      setShowExportMenu(!showExportMenu);
+                    }}
+                  >
+                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                      <Circle cx={18} cy={5} r={3} stroke="#ffffff" strokeWidth={2.5} />
+                      <Circle cx={6} cy={12} r={3} stroke="#ffffff" strokeWidth={2.5} />
+                      <Circle cx={18} cy={19} r={3} stroke="#ffffff" strokeWidth={2.5} />
+                      <Path d="M8.59 13.51L15.42 17.49M15.41 6.51L8.59 10.49" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  </TouchableOpacity>
+                </LinearGradient>
 
-              {initialMode !== "preview" && (
-<TouchableOpacity
-                style={styles.circleBtnGreen}
-                onPress={handleSaveToDatabase}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Ionicons name="checkmark-outline" size={28} color="#fff" />
+                {initialMode !== "preview" && (
+                  <LinearGradient colors={["#10b981", "#059669"]} style={styles.statementCircleBtn}>
+                    <TouchableOpacity style={styles.statementCircleTouch} onPress={handleSaveToDatabase} disabled={isSaving}>
+                      {isSaving ? <ActivityIndicator color="#ffffff" /> : (
+                        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                          <Path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                          <Polyline points="22 4 12 14.01 9 11.01" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                        </Svg>
+                      )}
+                    </TouchableOpacity>
+                  </LinearGradient>
                 )}
-              </TouchableOpacity>
-)}
+              </Animated.View>
             </>
           )}
         </View>
@@ -1134,6 +1212,39 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 100,
   },
+  formActionCard: {
+    width: "100%",
+    backgroundColor: "transparent",
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    paddingHorizontal: 16,
+    paddingVertical: 0,
+    borderRadius: 0,
+    elevation: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    gap: 0,
+    borderWidth: 0,
+  },
+  previewActionCard: {
+    width: "100%",
+    backgroundColor: "transparent",
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    paddingHorizontal: 16,
+    paddingVertical: 0,
+    borderRadius: 0,
+    elevation: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    gap: 0,
+    borderWidth: 0,
+  },
+  previewActionButtons: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 8,
+  },
   actionCard: {
     backgroundColor: "rgba(255,255,255,0.95)",
     flexDirection: "row-reverse",
@@ -1147,25 +1258,47 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#347dad",
   },
+  formActionButtons: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  statementCircleBtn: {
+    width: 44,
+    height: 44,
+    borderWidth: 2,
+    borderColor: "#ffffff",
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    elevation: 8,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.28,
+    shadowRadius: 5,
+  },
+  statementCircleTouch: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   circleBtnLight: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#347dad",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#0f4c75",
     justifyContent: "center",
     alignItems: "center",
   },
   circleBtnGreen: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#10b981",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#0f4c75",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#10b981",
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 5,
   },
   exportMenu: {
     position: "absolute",

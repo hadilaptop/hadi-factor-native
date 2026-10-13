@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { exportViewFile } from '../services/documentExport';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { SlideInLeft, SlideInRight, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path, Polyline, Circle } from 'react-native-svg';
 import Header from '../components/Header';
 import CustomText from '../components/CustomText';
 import CustomTextInput from '../components/CustomTextInput';
@@ -241,10 +242,16 @@ export default function CustomerFullStatement({
 
   return (
     <View style={styles.container}>
-      <Header title={customer?.name} subtitle="صورت حساب" onBack={onBack} iconName="arrow-back" />
+      <View style={{ zIndex: 10, elevation: 10 }}>
+        <Header title={customer?.name} subtitle="صورت حساب" onBack={onBack} iconName="arrow-back" />
+      </View>
 
       {/* Action Filter Bar */}
-      <View style={[styles.filterBar, { direction: 'ltr' }]}>
+      <Animated.View
+        entering={SlideInRight.duration(250)}
+        style={{ zIndex: 20, elevation: 20 }}
+      >
+        <LinearGradient colors={['#22628e', '#2f77a7']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.filterBar, { direction: 'ltr' }]}>
         <View style={styles.tabsRow}>
           <TouchableOpacity
             style={styles.sortBtn}
@@ -272,9 +279,11 @@ export default function CustomerFullStatement({
           <Ionicons name="calendar-outline" size={20} color="#ffffff" />
           <CustomText style={styles.tabBtnText}>تاریخ</CustomText>
         </TouchableOpacity>
-      </View>
+        </LinearGradient>
+      </Animated.View>
 
       {/* Main Statement Content View */}
+      <Animated.View entering={SlideInRight.duration(250)} style={{ flex: 1, zIndex: 0, elevation: 0 }}>
       <GestureHandlerRootView style={styles.statementCardWrapper}>
         <View
           style={styles.statementViewport}
@@ -427,17 +436,31 @@ export default function CustomerFullStatement({
           </GestureDetector>
         </View>
       </GestureHandlerRootView>
+      </Animated.View>
 
       {/* Floating Bottom Actions (Share & Save) */}
       <View style={[styles.bottomBar, { bottom: bottomNavHeight + 20 }]}>
-        <View style={styles.bottomActionsCard}>
-          <TouchableOpacity style={styles.actionCircleBtn} onPress={() => setShowExportModal('share')}>
-            <Ionicons name="share-social-outline" size={20} color="#ffffff" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCircleBtn} onPress={() => setShowExportModal('save')}>
-            <Ionicons name="download-outline" size={20} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
+        <Animated.View
+          entering={SlideInLeft.duration(300).delay(80)}
+          style={styles.bottomActionsCard}
+        >
+          <LinearGradient colors={['#3282b8', '#0f4c75']} style={styles.statementCircleBtn}>
+            <TouchableOpacity
+              style={styles.statementCircleTouch}
+              onPress={() => setShowExportModal('save')}
+            >
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /><Polyline points="7 10 12 15 17 10" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /><Path d="M12 15V3" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" /></Svg>
+            </TouchableOpacity>
+          </LinearGradient>
+          <LinearGradient colors={['#3282b8', '#0f4c75']} style={styles.statementCircleBtn}>
+            <TouchableOpacity
+              style={styles.statementCircleTouch}
+              onPress={() => setShowExportModal('share')}
+            >
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Circle cx={18} cy={5} r={3} stroke="#ffffff" strokeWidth={2} /><Circle cx={6} cy={12} r={3} stroke="#ffffff" strokeWidth={2} /><Circle cx={18} cy={19} r={3} stroke="#ffffff" strokeWidth={2} /><Path d="M8.7 10.5L15.3 6.5M8.7 13.5L15.3 17.5" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" /></Svg>
+            </TouchableOpacity>
+          </LinearGradient>
+        </Animated.View>
       </View>
 
       {/* Export Options Modal */}
@@ -524,7 +547,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#3282b8',
     marginHorizontal: 15,
     marginTop: 10,
     marginBottom: 5,
@@ -553,21 +575,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   sortBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#ffffff',
+    borderStyle: 'solid',
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   expandBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#ffffff',
+    borderStyle: 'solid',
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -601,19 +625,19 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: '#ffffff',
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: 'bold',
   },
   cardSubtitle: {
     color: '#cbd5e1',
-    fontSize: 11,
+    fontSize: 10,
     marginTop: 4,
   },
   table: {
     width: '100%',
   },
   tableHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     backgroundColor: '#f1f5f9',
     borderBottomWidth: 1.5,
     borderColor: '#cbd5e1',
@@ -621,12 +645,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   th: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: 'bold',
     color: '#334155',
   },
   tableRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     borderBottomWidth: 1,
     borderColor: '#e2e8f0',
     paddingVertical: 8,
@@ -645,13 +669,13 @@ const styles = StyleSheet.create({
     borderColor: '#bfdbfe',
   },
   td: {
-    fontSize: 11,
+    fontSize: 9,
     color: '#334155',
   },
   invoiceLink: {
     color: '#2563eb',
-    fontWeight: 'bold',
-    fontSize: 11,
+    fontWeight: 'normal',
+    fontSize: 9,
   },
   textDebt: { color: '#d32f2f' },
   textCredit: { color: '#2e7d32' },
@@ -663,45 +687,52 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   expandedHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     borderBottomWidth: 1,
     borderColor: '#cbd5e1',
     paddingBottom: 4,
   },
-  expTh: { fontSize: 10, color: '#64748b', fontWeight: 'bold' },
+  expTh: { fontSize: 8, color: '#64748b', fontWeight: 'bold' },
   expandedRow: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     paddingVertical: 3,
     borderBottomWidth: 0.5,
     borderColor: '#e2e8f0',
   },
-  expTd: { fontSize: 10, color: '#334155' },
+  expTd: { fontSize: 8, color: '#334155' },
   finalBalanceLabel: {
     fontWeight: 'bold',
     color: '#1e3a8a',
   },
   bottomBar: {
     position: 'absolute',
-    bottom: 25,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+    left: 16,
+    alignItems: 'flex-start',
+    zIndex: 100,
   },
   bottomActionsCard: {
-    flexDirection: 'row',
-    gap: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 30,
-    padding: 6,
-    borderWidth: 2,
-    borderColor: '#3282b8',
-    elevation: 8,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 8,
   },
-  actionCircleBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#0f4c75',
+  statementCircleBtn: {
+    width: 44,
+    height: 44,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.28,
+    shadowRadius: 5,
+  },
+  statementCircleTouch: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -60,9 +60,7 @@ export default function AccountScreen({
   }, [customerToEdit]);
 
   const handleClose = () => {
-    scrollRef.current?.close(() => {
       onNavigate(returnScreen);
-    });
   };
 
   const handleProfilePicPress = async () => {

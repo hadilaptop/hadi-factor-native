@@ -1,14 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   TouchableOpacity,
   Modal,
+  Animated,
   ScrollView,
   StyleSheet,
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path, Polyline, Circle } from 'react-native-svg';
 import Header from '../components/Header';
 import CustomText from '../components/CustomText';
 import CustomTextInput from '../components/CustomTextInput';
@@ -41,6 +43,20 @@ export default function CustomerStatementScreen({
   const [showDateModal, setShowDateModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState<'share' | 'save' | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const statementActionsAnim = useRef(new Animated.Value(-120)).current;
+
+  useEffect(() => {
+    statementActionsAnim.setValue(-120);
+    const animation = Animated.timing(statementActionsAnim, {
+      toValue: 0,
+      duration: 300,
+      delay: 80,
+      useNativeDriver: true,
+    });
+    animation.start();
+
+    return () => animation.stop();
+  }, [statementActionsAnim]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -362,7 +378,7 @@ export default function CustomerStatementScreen({
               <CustomText
                 style={[
                   styles.td,
-                  { flex: 3.1, textAlign: 'right', fontWeight: 'bold' },
+                  { flex: 3.1, textAlign: 'right'},
                   endBalance > 0 ? styles.textDebt : endBalance < 0 ? styles.textCredit : {},
                 ]}
               >
@@ -375,14 +391,29 @@ export default function CustomerStatementScreen({
 
       {/* Floating Bottom Actions (Share & Save) */}
       <View style={styles.bottomBar}>
-        <View style={styles.bottomActionsCard}>
-          <TouchableOpacity style={styles.actionCircleBtn} onPress={() => setShowExportModal('share')}>
-            <Ionicons name="share-social-outline" size={20} color="#ffffff" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCircleBtn} onPress={() => setShowExportModal('save')}>
-            <Ionicons name="download-outline" size={20} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
+        <Animated.View
+          style={[
+            styles.statementActionButtons,
+            { transform: [{ translateX: statementActionsAnim }] },
+          ]}
+        >
+          <LinearGradient colors={['#3282b8', '#0f4c75']} style={styles.statementCircleBtn}>
+            <TouchableOpacity
+              style={styles.statementCircleTouch}
+              onPress={() => setShowExportModal('share')}
+            >
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Circle cx={18} cy={5} r={3} stroke="#ffffff" strokeWidth={2} /><Circle cx={6} cy={12} r={3} stroke="#ffffff" strokeWidth={2} /><Circle cx={18} cy={19} r={3} stroke="#ffffff" strokeWidth={2} /><Path d="M8.7 10.5L15.3 6.5M8.7 13.5L15.3 17.5" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" /></Svg>
+            </TouchableOpacity>
+          </LinearGradient>
+          <LinearGradient colors={['#3282b8', '#0f4c75']} style={styles.statementCircleBtn}>
+            <TouchableOpacity
+              style={styles.statementCircleTouch}
+              onPress={() => setShowExportModal('save')}
+            >
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /><Polyline points="7 10 12 15 17 10" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /><Path d="M12 15V3" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" /></Svg>
+            </TouchableOpacity>
+          </LinearGradient>
+        </Animated.View>
       </View>
 
       {/* Export Options Modal */}
@@ -531,7 +562,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: '#ffffff',
     fontSize: 15,
-    fontWeight: 'bold',
+    
   },
   cardSubtitle: {
     color: '#cbd5e1',
@@ -551,7 +582,7 @@ const styles = StyleSheet.create({
   },
   th: {
     fontSize: 11,
-    fontWeight: 'bold',
+
     color: '#334155',
   },
   tableRow: {
@@ -579,7 +610,6 @@ const styles = StyleSheet.create({
   },
   invoiceLink: {
     color: '#2563eb',
-    fontWeight: 'bold',
     fontSize: 11,
   },
   textDebt: { color: '#d32f2f' },
@@ -597,7 +627,7 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
     paddingBottom: 4,
   },
-  expTh: { fontSize: 10, color: '#64748b', fontWeight: 'bold' },
+  expTh: { fontSize: 10, color: '#64748b'},
   expandedRow: {
     flexDirection: 'row',
     paddingVertical: 3,
@@ -606,7 +636,7 @@ const styles = StyleSheet.create({
   },
   expTd: { fontSize: 10, color: '#334155' },
   finalBalanceLabel: {
-    fontWeight: 'bold',
+
     color: '#1e3a8a',
   },
   bottomBar: {
@@ -614,6 +644,33 @@ const styles = StyleSheet.create({
     bottom: 25,
     left: 0,
     right: 0,
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+  },
+  statementActionButtons: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  statementCircleBtn: {
+    width: 44,
+    height: 44,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.28,
+    shadowRadius: 5,
+  },
+  statementCircleTouch: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   bottomActionsCard: {
@@ -650,7 +707,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
   },
-  exportText: { color: '#ffffff', fontSize: 14, fontWeight: 'bold' },
+  exportText: { color: '#ffffff', fontSize: 14 },
   exportDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
   dateModalBox: {
     width: '85%',
@@ -659,7 +716,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2e557c',
   },
-  modalTitle: { color: '#ffffff', fontSize: 16, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
+  modalTitle: { color: '#ffffff', fontSize: 16, marginBottom: 15, textAlign: 'center' },
   inputLabel: { color: '#cbd5e1', fontSize: 12, marginBottom: 4 },
   modalInput: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -674,7 +731,7 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 15 },
   modalBtn: { flex: 1, height: 40, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   primaryBtn: { backgroundColor: '#10b981' },
-  primaryBtnText: { color: '#ffffff', fontSize: 13, fontWeight: 'bold' },
+  primaryBtnText: { color: '#ffffff', fontSize: 13 },
   secondaryBtn: { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   secondaryBtnText: { color: '#ffffff', fontSize: 13 },
   toast: {
@@ -690,5 +747,5 @@ const styles = StyleSheet.create({
     gap: 8,
     elevation: 10,
   },
-  toastText: { color: '#ffffff', fontSize: 12, fontWeight: 'bold' },
+  toastText: { color: '#ffffff', fontSize: 12 },
 });

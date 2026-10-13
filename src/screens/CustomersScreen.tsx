@@ -64,10 +64,8 @@ export default function CustomersScreen({
 
   const handleClose = () => {
     searchRef.current?.close();
-
-    scrollRef.current?.close(() => {
       onNavigate('dashboard');
-    });
+
   };
 
   const confirmDelete = () => {
@@ -325,7 +323,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 100,
+    paddingBottom: 410,
   },
   customerCardWrapper: {
     position: 'relative',

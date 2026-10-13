@@ -72,9 +72,7 @@ export default function SettingsScreen({
   }, []);
 
   const handleClose = () => {
-    scrollRef.current?.close(() => {
       onNavigate(returnScreen);
-    });
   };
 
   const handleLogoSelect = async () => {

@@ -13,8 +13,9 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
-import Reanimated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
+import Reanimated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Path, Polyline } from "react-native-svg";
 import Header from "../components/Header";
 import CustomText from "../components/CustomText";
 import {
@@ -108,6 +109,19 @@ export default function CustomerLedgerScreen({
   const insets = useSafeAreaInsets();
   const safePaddingBottom = insets.bottom > 0 ? insets.bottom + 5 : 10;
   const bottomNavHeight = 55 + safePaddingBottom;
+  const statementActionsAnim = useRef(new Animated.Value(-120)).current;
+
+  useEffect(() => {
+    statementActionsAnim.setValue(-120);
+    const animation = Animated.timing(statementActionsAnim, {
+      toValue: 0,
+      duration: 300,
+      delay: 80,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [statementActionsAnim]);
 
   const filterBarSlideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
   const listSlideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
@@ -402,6 +416,7 @@ return (
 
       {/* Transactions List */}
       <Animated.ScrollView
+        removeClippedSubviews={false}
         style={[styles.listContainer, { transform: [{ translateX: listSlideAnim }] }]}
         contentContainerStyle={styles.listContent}
       >
@@ -428,7 +443,6 @@ return (
                     : undefined
                 }
                 exiting={FadeOutUp.duration(160)}
-                layout={LinearTransition.duration(280)}
               >
               <LinearGradient colors={['#22628e', '#2f77a7']} start={index % 3 === 0 ? { x: 0, y: 0 } : index % 3 === 1 ? { x: 1, y: 0 } : { x: 0, y: 1 }} end={index % 3 === 0 ? { x: 1, y: 1 } : index % 3 === 1 ? { x: 0, y: 1 } : { x: 1, y: 0 }} style={[styles.card, isMenuOpen && styles.cardMenuOpen]}>
                 <TouchableOpacity
@@ -656,7 +670,11 @@ return (
 
                 {/* Expanded Details */}
                 {isExpanded && (
-                  <View style={styles.expandedBody}>
+                  <Reanimated.View
+                    entering={FadeInDown.duration(220)}
+                    exiting={FadeOutUp.duration(50)}
+                  >
+                    <View style={styles.expandedBody}>
                     {isPayment && (
                       <View style={styles.detailsBox}>
                         <View style={styles.detailRowBetween}>
@@ -777,7 +795,8 @@ return (
                         </View>
                       </TouchableOpacity>
                     )}
-                  </View>
+                    </View>
+                  </Reanimated.View>
                 )}
               </LinearGradient>
               </Reanimated.View>
@@ -787,7 +806,9 @@ return (
       </Animated.ScrollView>
 
       {/* Floating Statement Circular Button */}
-      <View style={[styles.bottomBar, { bottom: bottomNavHeight + 20 }]}>
+      <Animated.View
+        style={[styles.bottomBar, { bottom: bottomNavHeight + 20, transform: [{ translateX: statementActionsAnim }] }]}
+      >
         <LinearGradient
           colors={["#3282b8", "#0f4c75"]}
           style={styles.statementCircleBtn}
@@ -797,10 +818,14 @@ return (
             onPress={() => onNavigate?.("customerStatement")}
             accessibilityLabel="نمایش صورت حساب"
           >
-            <Ionicons name="document-text-outline" size={26} color="#ffffff" />
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+              <Path d="M3 11 L9 5 L13 8 L20 1" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              <Polyline points="15 1 20 1 20 6" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M4 16h4v4H4z M10 12h4v8h-4z M16 8h4v12h-4z" fill="#ffffff" stroke="none" />
+            </Svg>
           </TouchableOpacity>
         </LinearGradient>
-      </View>
+      </Animated.View>
 
       {/* Lightbox Modal */}
       <Modal visible={!!selectedImage} transparent animationType="fade">
@@ -1196,11 +1221,11 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   statementCircleBtn: {
-    width: 52,
+    width: 44,
+    height: 44,
     borderWidth: 2,
     borderColor: "#ffffff",
-    height: 52,
-    borderRadius: 26,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
