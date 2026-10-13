@@ -250,12 +250,12 @@ export default function CustomerFullStatement({
             style={styles.sortBtn}
             onPress={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
           >
-            <Ionicons name="swap-vertical" size={18} color="#ffffff" />
+            <Ionicons name="swap-vertical" size={22} color="#ffffff" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.tabBtn} onPress={toggleAllExpanded}>
+          <TouchableOpacity style={styles.expandBtn} onPress={toggleAllExpanded}>
             <Ionicons
               name={isAnyExpanded ? 'chevron-up' : 'chevron-down'}
-              size={16}
+              size={20}
               color="#ffffff"
             />
           </TouchableOpacity>
@@ -269,7 +269,7 @@ export default function CustomerFullStatement({
             setShowDateModal(true);
           }}
         >
-          <Ionicons name="calendar-outline" size={16} color="#ffffff" />
+          <Ionicons name="calendar-outline" size={20} color="#ffffff" />
           <CustomText style={styles.tabBtnText}>تاریخ</CustomText>
         </TouchableOpacity>
       </View>
@@ -541,8 +541,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 8,
   },
   tabBtnActive: {
@@ -550,12 +550,24 @@ const styles = StyleSheet.create({
   },
   tabBtnText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 14,
   },
   sortBtn: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  expandBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffffff',
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',

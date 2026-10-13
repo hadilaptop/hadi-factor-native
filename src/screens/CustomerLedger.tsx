@@ -125,6 +125,8 @@ export default function CustomerLedgerScreen({
     }).start();
   }, [filterBarSlideAnim, listSlideAnim]);
 
+  const hasInteractedWithLedger = useRef(false);
+
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<any | null>(null);
 
@@ -274,6 +276,7 @@ return (
               activeTab === "proformas" && styles.tabBtnActive,
             ]}
             onPress={() => {
+              hasInteractedWithLedger.current = true;
               setActiveTab("proformas");
               setShowAllFilterMenu(false);
             }}
@@ -287,6 +290,7 @@ return (
               activeTab === "invoices" && styles.tabBtnActive,
             ]}
             onPress={() => {
+              hasInteractedWithLedger.current = true;
               setActiveTab("invoices");
               setShowAllFilterMenu(false);
             }}
@@ -300,6 +304,7 @@ return (
               activeTab === "payments" && styles.tabBtnActive,
             ]}
             onPress={() => {
+              hasInteractedWithLedger.current = true;
               setActiveTab("payments");
               setShowAllFilterMenu(false);
             }}
@@ -314,6 +319,7 @@ return (
               activeTab === "all" && styles.tabBtnActive,
             ]}
             onPress={() => {
+              hasInteractedWithLedger.current = true;
               setActiveTab("all");
               setShowAllFilterMenu((prev) => !prev);
             }}
@@ -325,7 +331,10 @@ return (
 
         <TouchableOpacity
           style={styles.sortBtn}
-          onPress={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
+          onPress={() => {
+            hasInteractedWithLedger.current = true;
+            setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+          }}
         >
           <Ionicons name="swap-vertical" size={22} color="#ffffff" />
         </TouchableOpacity>
@@ -347,6 +356,7 @@ return (
               allFilters.payments && styles.filterOptionSelected,
             ]}
             onPress={() => {
+              hasInteractedWithLedger.current = true;
               setAllFilters((p) => ({ ...p, payments: !p.payments }));
             }}
           >
@@ -362,6 +372,7 @@ return (
               allFilters.invoices && styles.filterOptionSelected,
             ]}
             onPress={() => {
+              hasInteractedWithLedger.current = true;
               setAllFilters((p) => ({ ...p, invoices: !p.invoices }));
             }}
           >
@@ -377,6 +388,7 @@ return (
               allFilters.proformas && styles.filterOptionSelected,
             ]}
             onPress={() => {
+              hasInteractedWithLedger.current = true;
               setAllFilters((p) => ({ ...p, proformas: !p.proformas }));
             }}
           >
@@ -410,7 +422,11 @@ return (
             return (
               <Reanimated.View
                 key={`${activeTab}-${item.id}`}
-                entering={FadeInDown.duration(220)}
+                entering={
+                  hasInteractedWithLedger.current
+                    ? FadeInDown.duration(220)
+                    : undefined
+                }
                 exiting={FadeOutUp.duration(160)}
                 layout={LinearTransition.duration(280)}
               >
@@ -506,7 +522,23 @@ return (
                           return;
                         }
                         menuButtonRefs.current[item.id]?.measureInWindow((x: number, y: number, width: number, height: number) => {
-                          setMenuPosition({ top: y + height, left: Math.max(75, x - 128) });
+                          const screenHeight = Dimensions.get("window").height;
+                          const screenWidth = Dimensions.get("window").width;
+                          const menuHeight = item.kind === "payment" ? 100 : 150;
+                          const menuWidth = 190;
+                          const spaceBelow = screenHeight - (y + height);
+
+                          const top =
+                            spaceBelow >= menuHeight
+                              ? y + height
+                              : Math.max(8, y - menuHeight);
+
+                          const left = Math.max(
+                            8,
+                            Math.min(x - 128, screenWidth - menuWidth - 8),
+                          );
+
+                          setMenuPosition({ top, left });
                           setOpenMenuId(item.id);
                         });
                       }}

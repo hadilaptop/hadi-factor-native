@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Platform,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,8 @@ import * as jalaali from 'jalaali-js';
 // کامپوننت‌های سفارشی
 import CustomText from '../components/CustomText';
 import { toPersianDigits } from '../utils/numberUtils';
+
+const { width } = Dimensions.get('window');
 
 export default function HomeScreen({
   onNavigate = (screen: string) => console.log(screen),
@@ -41,29 +44,19 @@ const [currentDate] = useState(() => {
   });
 
   const displayCustomerCount = toPersianDigits(customerCount || 0);
-  const card1Anim = useRef(new Animated.Value(185)).current;
-  const card2Anim = useRef(new Animated.Value(185)).current;
-  const card3Anim = useRef(new Animated.Value(185)).current;
+  const cardsAnim = useRef(new Animated.Value(width)).current;
 
   useEffect(() => {
-    Animated.stagger(70, [
-      Animated.timing(card1Anim, {
-        toValue: 0,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-      Animated.timing(card2Anim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-      Animated.timing(card3Anim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [card1Anim, card2Anim, card3Anim]);
+    Animated.timing(cardsAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [cardsAnim]);
+
+  const handleNavigate = (screen: string) => {
+    onNavigate(screen);
+  };
 
   return (
     <View style={styles.dashboardAppContainer}>
@@ -81,11 +74,11 @@ const [currentDate] = useState(() => {
           <CustomText style={styles.dashHeaderTitle}>سیستم مدیریت فاکتور و حسابداری</CustomText>
         </LinearGradient>
 
-        <View style={styles.dashContent}>
-          <View style={styles.dashGrid}>
-            
-            <Animated.View style={{ transform: [{ translateX: card1Anim }] }}>
-              <TouchableOpacity activeOpacity={0.8} onPress={() => onNavigate("invoice")} style={styles.cardWrapper}>
+        <Animated.View style={{ transform: [{ translateX: cardsAnim }] }}>
+          <View style={styles.dashContent}>
+            <View style={styles.dashGrid}>
+              
+              <TouchableOpacity activeOpacity={0.8} onPress={() => handleNavigate("invoice")} style={styles.cardWrapper}>
                 <LinearGradient
                   colors={['#3282b8', '#0d2b43']}
                   start={{ x: 0, y: 0 }}
@@ -104,10 +97,8 @@ const [currentDate] = useState(() => {
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
-            </Animated.View>
 
-            <Animated.View style={{ transform: [{ translateX: card2Anim }] }}>
-              <TouchableOpacity activeOpacity={0.8} onPress={() => onNavigate("customers")} style={styles.cardWrapper}>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => handleNavigate("customers")} style={styles.cardWrapper}>
                 <LinearGradient
                   colors={['#0d2b43', '#0f4c75']}
                   start={{ x: 0, y: 0 }}
@@ -128,10 +119,8 @@ const [currentDate] = useState(() => {
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
-            </Animated.View>
 
-            <Animated.View style={{ transform: [{ translateX: card3Anim }] }}>
-              <TouchableOpacity activeOpacity={0.8} onPress={() => onNavigate("newAccount")} style={styles.cardWrapper}>
+              <TouchableOpacity activeOpacity={0.8} onPress={() => handleNavigate("newAccount")} style={styles.cardWrapper}>
                 <LinearGradient
                   colors={['#0f4c75', '#3282b8']}
                   start={{ x: 0, y: 0 }}
@@ -150,10 +139,10 @@ const [currentDate] = useState(() => {
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
-            </Animated.View>
 
+            </View>
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );
