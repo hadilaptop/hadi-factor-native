@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path, Polyline, Circle } from 'react-native-svg';
 import Header from '../components/Header';
 import CustomText from '../components/CustomText';
 import CustomTextInput from '../components/CustomTextInput';
@@ -402,7 +401,7 @@ export default function CustomerStatementScreen({
               style={styles.statementCircleTouch}
               onPress={() => setShowExportModal('share')}
             >
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Circle cx={18} cy={5} r={3} stroke="#ffffff" strokeWidth={2} /><Circle cx={6} cy={12} r={3} stroke="#ffffff" strokeWidth={2} /><Circle cx={18} cy={19} r={3} stroke="#ffffff" strokeWidth={2} /><Path d="M8.7 10.5L15.3 6.5M8.7 13.5L15.3 17.5" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" /></Svg>
+              <Ionicons name="share-social-outline" size={24} color="#ffffff" />
             </TouchableOpacity>
           </LinearGradient>
           <LinearGradient colors={['#3282b8', '#0f4c75']} style={styles.statementCircleBtn}>
@@ -410,7 +409,7 @@ export default function CustomerStatementScreen({
               style={styles.statementCircleTouch}
               onPress={() => setShowExportModal('save')}
             >
-              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /><Polyline points="7 10 12 15 17 10" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /><Path d="M12 15V3" stroke="#ffffff" strokeWidth={2} strokeLinecap="round" /></Svg>
+              <Ionicons name="download-outline" size={24} color="#ffffff" />
             </TouchableOpacity>
           </LinearGradient>
         </Animated.View>
@@ -610,6 +609,7 @@ const styles = StyleSheet.create({
   },
   invoiceLink: {
     color: '#2563eb',
+
     fontSize: 11,
   },
   textDebt: { color: '#d32f2f' },

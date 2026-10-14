@@ -88,8 +88,7 @@ export default function InvoiceScreen({
   const bottomNavHeight = 45 + safePaddingBottom;
   const [step, setStep] = useState(initialMode === "preview" ? "preview" : "form");
   const [isSaving, setIsSaving] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const [exportAction, setExportAction] = useState<"share" | "save">("share");
+  const [showExportMenu, setShowExportMenu] = useState<"share" | "save" | null>(null);
   const invoiceCaptureRef = useRef<View>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
@@ -381,11 +380,13 @@ export default function InvoiceScreen({
   };
 
   const handleExport = async (format: "pdf" | "png") => {
-    setShowExportMenu(false);
+    const action = showExportMenu;
+    setShowExportMenu(null);
+    if (action !== "share" && action !== "save") return;
     await exportViewFile({
       viewRef: invoiceCaptureRef,
       format,
-      action: exportAction,
+      action,
       filename: `فاکتور-${invoiceNumber || "جدید"}`,
     });
   };
@@ -764,6 +765,28 @@ export default function InvoiceScreen({
           },
         ]}
       >
+        {showExportMenu && step === "preview" && (
+          <View
+            style={[
+              styles.exportMenu,
+              showExportMenu === "share" && { bottom: 70 },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => handleExport("png")}
+              style={styles.exportMenuItem}
+            >
+              <CustomText style={styles.exportMenuText}>تصویر (PNG)</CustomText>
+            </TouchableOpacity>
+            <View style={styles.exportMenuDivider} />
+            <TouchableOpacity
+              onPress={() => handleExport("pdf")}
+              style={styles.exportMenuItem}
+            >
+              <CustomText style={styles.exportMenuText}>فایل (PDF)</CustomText>
+            </TouchableOpacity>
+          </View>
+        )}
         <View style={[styles.actionCard, step === "form" ? styles.formActionCard : styles.previewActionCard]}>
           {step === "form" ? (
             <>
@@ -811,24 +834,6 @@ export default function InvoiceScreen({
             </>
           ) : (
             <>
-              {showExportMenu && (
-                <View style={styles.exportMenu}>
-                  <TouchableOpacity
-                    onPress={() => handleExport("png")}
-                    style={styles.exportMenuItem}
-                  >
-                    <CustomText style={styles.exportMenuText}>تصویر (PNG)</CustomText>
-                  </TouchableOpacity>
-                  <View style={styles.exportMenuDivider} />
-                  <TouchableOpacity
-                    onPress={() => handleExport("pdf")}
-                    style={styles.exportMenuItem}
-                  >
-                    <CustomText style={styles.exportMenuText}>فایل (PDF)</CustomText>
-                  </TouchableOpacity>
-                </View>
-              )}
-
               <Animated.View
                 style={[
                   styles.previewActionButtons,
@@ -838,10 +843,7 @@ export default function InvoiceScreen({
                 <LinearGradient colors={["#3282b8", "#0f4c75"]} style={styles.statementCircleBtn}>
                   <TouchableOpacity
                     style={styles.statementCircleTouch}
-                    onPress={() => {
-                      setExportAction("save");
-                      setShowExportMenu(!showExportMenu);
-                    }}
+                    onPress={() => setShowExportMenu("save")}
                   >
                     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                       <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -854,10 +856,7 @@ export default function InvoiceScreen({
                 <LinearGradient colors={["#3282b8", "#0f4c75"]} style={styles.statementCircleBtn}>
                   <TouchableOpacity
                     style={styles.statementCircleTouch}
-                    onPress={() => {
-                      setExportAction("share");
-                      setShowExportMenu(!showExportMenu);
-                    }}
+                    onPress={() => setShowExportMenu("share")}
                   >
                     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                       <Circle cx={18} cy={5} r={3} stroke="#ffffff" strokeWidth={2.5} />
@@ -885,6 +884,13 @@ export default function InvoiceScreen({
           )}
         </View>
       </Animated.View>
+      {showExportMenu && step === "preview" && (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={() => setShowExportMenu(null)}
+          accessibilityLabel="بستن منوی خروجی"
+        />
+      )}
       <Modal
         visible={isCustomerDropdownOpen}
         transparent
@@ -1300,21 +1306,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  exportMenu: {
-    position: "absolute",
-    bottom: 70,
-    left: 20,
-    backgroundColor: "#1f5579",
-    borderRadius: 12,
-    padding: 10,
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    minWidth: 130,
-  },
+exportMenu: {
+  position: "absolute",
+  bottom: 120,
+  left: 65,
+  backgroundColor: "#0f4c75",
+  borderRadius: 12,
+  padding: 10,
+  minWidth: 150,
+  zIndex: 110,
+  elevation: 12,
+},
   exportMenuItem: {
     paddingVertical: 10,
     alignItems: "center",
