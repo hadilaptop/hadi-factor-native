@@ -189,13 +189,7 @@ export default function CustomerPayment({
           </CustomText>
 
           <CustomText style={styles.inputLabel}>نام مشتری *</CustomText>
-          {customer ? (
-            <View style={styles.customerDisplay}>
-              <Ionicons name="person-outline" size={19} color="#fff" />
-              <CustomText style={styles.customerName}>{customer.name}</CustomText>
-            </View>
-          ) : (
-            <View ref={customerPickerRef} collapsable={false} style={styles.customerPickerContainer}>
+          <View ref={customerPickerRef} collapsable={false} style={styles.customerPickerContainer}>
               <TouchableOpacity
                 style={[styles.selector, customerPickerVisible && styles.selectorOpen]}
                 onPress={toggleCustomerPicker}
@@ -216,7 +210,6 @@ export default function CustomerPayment({
 
 
             </View>
-          )}
 
           <CustomText style={styles.inputLabel}>مبلغ دریافتی (ریال) *</CustomText>
           <View style={styles.amountWrap}>
@@ -271,10 +264,11 @@ export default function CustomerPayment({
               <CustomText style={styles.inputLabel}>شماره چک / صیادی</CustomText>
               <CustomTextInput
                 style={styles.input}
-                placeholder="شماره چک / صیادی"
+                placeholder="0"
                 placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
                 value={checkNumber}
-                onChangeText={setCheckNumber}
+                onChangeText={(text) => setCheckNumber(text.replace(/[^0-9۰-۹٠-٩]/g, ""))}
               />
               <CustomText style={styles.inputLabel}>نام بانک</CustomText>
               <CustomTextInput

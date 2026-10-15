@@ -497,7 +497,7 @@ return (
                               ? "📋 پیش‌ فاکتور"
                             : isInvoice
                               ? "📄 فاکتور فروش"
-                              : `💵 ${item.method || "نقدی"}`}
+                              : `${item.method === "واریز به حساب" ? "🏦" : item.method === "کارت به کارت" || item.method === "کارت‌به‌کارت" ? "💳" : item.method === "چک" ? "🧾" : "💵"} ${item.method || "نقدی"}`}
                         </CustomText>
                       </View>
                       {isProforma && (
@@ -705,6 +705,13 @@ return (
                                 {toPersianDigits(item.checkDate)}
                               </CustomText>
                             )}
+                          </View>
+                        )}
+                        {!!item.note?.trim() && (
+                          <View style={styles.checkSubDetails}>
+                            <CustomText style={styles.subDetailText}>
+                              توضیحات: {item.note.trim()}
+                            </CustomText>
                           </View>
                         )}
                       </View>
@@ -1159,8 +1166,8 @@ const styles = StyleSheet.create({
   },
   detailLabel: { color: "#ffffff", fontSize: 14 },
   amountValue: { color: "#38ef7d", fontSize: 15 },
-  checkSubDetails: { alignItems: "flex-start", marginTop: 6, gap: 4 },
-  subDetailText: { color: "#cbd5e1", fontSize: 12 },
+  checkSubDetails: { alignItems: "flex-end", marginTop: 6, gap: 4 },
+  subDetailText: { color: "#cbd5e1", fontSize: 12, textAlign: "right" },
   miniInvoiceBox: {
     backgroundColor: "#f8fafc",
     borderRadius: 8,
@@ -1168,16 +1175,16 @@ const styles = StyleSheet.create({
   },
   miniHeader: {
     flexDirection: "row-reverse",
-    borderBottomWidth: 1,
-    borderColor: "#cbd5e1",
+    borderBottomWidth: 0.5,
+    borderColor: "#000000",
     paddingBottom: 4,
   },
   miniCol: { fontSize: 12, color: "#475569" },
   miniRow: {
     flexDirection: "row-reverse",
     paddingVertical: 4,
-    borderBottomWidth: 0.5,
-    borderColor: "#e2e8f0",
+    borderBottomWidth: 1,
+    borderColor: "#9ebbe2",
   },
   miniCell: { fontSize: 12, color: "#334155" },
   miniFooter: {

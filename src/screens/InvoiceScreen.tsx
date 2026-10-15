@@ -22,6 +22,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Path, Circle, Polyline } from "react-native-svg";
 import Header from "../components/Header";
+import ExportAlertModal from "../components/ExportAlertModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AnimatedScrollWrapper, {
   AnimatedScrollWrapperRef,
@@ -89,6 +90,7 @@ export default function InvoiceScreen({
   const [step, setStep] = useState(initialMode === "preview" ? "preview" : "form");
   const [isSaving, setIsSaving] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState<"share" | "save" | null>(null);
+  const [exportAlert, setExportAlert] = useState({ visible: false, title: "", message: "", success: false });
   const invoiceCaptureRef = useRef<View>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
@@ -256,7 +258,7 @@ export default function InvoiceScreen({
     if (rows.length < MAX_ROWS) {
       setRows([
         ...rows,
-        { id: Date.now(), desc: "", quantity: "1", unitPrice: "" },
+        { id: Date.now(), desc: "", quantity: "", unitPrice: "" },
       ]);
     }
   };
@@ -388,6 +390,7 @@ export default function InvoiceScreen({
       format,
       action,
       filename: `فاکتور-${invoiceNumber || "جدید"}`,
+      onAlert: (title, message, success) => setExportAlert({ visible: true, title, message, success }),
     });
   };
 
@@ -928,6 +931,13 @@ export default function InvoiceScreen({
         initialDate={invoiceDate}
         onSelectDate={setInvoiceDate}
         onClose={() => setIsDatePickerVisible(false)}
+      />
+      <ExportAlertModal
+        visible={exportAlert.visible}
+        title={exportAlert.title}
+        message={exportAlert.message}
+        success={exportAlert.success}
+        onClose={() => setExportAlert((current) => ({ ...current, visible: false }))}
       />
     </View>
   );

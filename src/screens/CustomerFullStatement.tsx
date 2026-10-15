@@ -19,6 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Path, Polyline, Circle } from "react-native-svg";
 import Header from "../components/Header";
+import ExportAlertModal from "../components/ExportAlertModal";
 import CustomText from "../components/CustomText";
 import CustomTextInput from "../components/CustomTextInput";
 import {
@@ -58,6 +59,7 @@ export default function CustomerFullStatement({
     "share" | "save" | null
   >(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [exportAlert, setExportAlert] = useState({ visible: false, title: "", message: "", success: false });
   const statementCaptureRef = useRef<View>(null);
 
   const { width } = useWindowDimensions();
@@ -82,7 +84,7 @@ export default function CustomerFullStatement({
 
   const updateCenteredPosition = (_height: number) => {
     if (hasInitialVerticalPosition.current || cardHeight.value <= 0) return;
-    const topOffset = -(cardHeight.value * (1 - initialScale)) / 2;
+    const topOffset = 0;
     centeredTranslateY.value = topOffset;
     translateY.value = topOffset;
     hasInitialVerticalPosition.current = true;
@@ -121,6 +123,7 @@ export default function CustomerFullStatement({
 
   const gestures = Gesture.Simultaneous(pinch, pan, doubleTap);
   const animatedCardStyle = useAnimatedStyle(() => ({
+    transformOrigin: "top center",
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
@@ -270,6 +273,7 @@ export default function CustomerFullStatement({
       format: type,
       action,
       filename: `صورت-حساب-${customer?.name || "مشتری"}`,
+      onAlert: (title, message, success) => setExportAlert({ visible: true, title, message, success }),
     });
   };
 
@@ -785,6 +789,13 @@ export default function CustomerFullStatement({
           <CustomText style={styles.toastText}>{toastMsg}</CustomText>
         </View>
       )}
+      <ExportAlertModal
+        visible={exportAlert.visible}
+        title={exportAlert.title}
+        message={exportAlert.message}
+        success={exportAlert.success}
+        onClose={() => setExportAlert((current) => ({ ...current, visible: false }))}
+      />
     </View>
   );
 }

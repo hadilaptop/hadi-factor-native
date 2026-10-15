@@ -193,8 +193,21 @@ export default function App() {
         if (screen === 'newAccount') {
           setCustomerToEdit(null); setCustomerFormReturnScreen('dashboard');
         }
+        if (currentScreen === 'invoice' && screen !== 'invoice') {
+          setSelectedCustomer(null);
+          setSelectedInvoice(null);
+          setInvoiceMode(null);
+        }
+        if (currentScreen === 'customerPayment' && screen !== 'receipt') {
+          setSelectedCustomer(null);
+          setPaymentToEdit(null);
+        }
         if (screen === 'receipt') {
-          setSelectedCustomer(null); setPaymentToEdit(null); setCurrentScreen('customerPayment');
+          if (currentScreen !== 'customerLedger') {
+            setSelectedCustomer(null);
+          }
+          setPaymentToEdit(null);
+          setCurrentScreen('customerPayment');
           return;
         }
         setCurrentScreen(screen);

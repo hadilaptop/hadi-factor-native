@@ -12,6 +12,7 @@ type ExportOptions = {
   format: ExportFormat;
   action: ExportAction;
   filename: string;
+  onAlert?: (title: string, message: string, success: boolean) => void;
 };
 
 type DocumentExportNativeModule = {
@@ -46,6 +47,7 @@ export async function exportViewFile({
   format,
   action,
   filename,
+  onAlert,
 }: ExportOptions): Promise<void> {
   try {
     if (!viewRef.current) {
@@ -89,25 +91,55 @@ export async function exportViewFile({
       return;
     }
 
-    if (Platform.OS !== "android" || !DocumentExportModule) {
+    if (Platform.OS !== "android") {
       throw new Error("ذخیره مستقیم در حافظه عمومی فقط در نسخه اندروید پشتیبانی می‌شود.");
     }
 
-    await ensureLegacyStoragePermission();
     const fileBase64 = await FileSystem.readAsStringAsync(fileUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
-    await DocumentExportModule.saveFile(fileBase64, finalFilename, mimeType);
 
-    Alert.alert(
-      "ذخیره شد",
-      `فایل در پوشه Download/${EXPORT_FOLDER_NAME} ذخیره شد: ${finalFilename}`,
+    if (DocumentExportModule) {
+      await ensureLegacyStoragePermission();
+      await DocumentExportModule.saveFile(fileBase64, finalFilename, mimeType);
+      onAlert?.(
+        "ذخیره شد",
+        `فایل در پوشه Download/${EXPORT_FOLDER_NAME} ذخیره شد: ${finalFilename}`,
+        true,
+      );
+      if (!onAlert) {
+        Alert.alert("ذخیره شد", `فایل در پوشه Download/${EXPORT_FOLDER_NAME} ذخیره شد: ${finalFilename}`);
+      }
+      return;
+    }
+
+    const directory = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!directory.granted) {
+      throw new Error("برای ذخیره فایل، دسترسی انتخاب پوشه داده نشد.");
+    }
+    const savedFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+      directory.directoryUri,
+      finalFilename,
+      mimeType,
     );
+    await FileSystem.writeAsStringAsync(savedFileUri, fileBase64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    onAlert?.(
+      "ذخیره شد",
+      `فایل با موفقیت در پوشه انتخاب‌شده ذخیره شد: ${finalFilename}`,
+      true,
+    );
+    if (!onAlert) {
+      Alert.alert("ذخیره شد", `فایل با موفقیت در پوشه انتخاب‌شده ذخیره شد: ${finalFilename}`);
+    }
   } catch (error) {
     console.error("File export failed:", error);
-    Alert.alert(
-      "خطا در خروجی فایل",
-      error instanceof Error ? error.message : "ساخت یا ذخیره فایل انجام نشد.",
-    );
+    const message = error instanceof Error ? error.message : "ساخت یا ذخیره فایل انجام نشد.";
+    if (onAlert) {
+      onAlert("خطا در خروجی فایل", message, false);
+    } else {
+      Alert.alert("خطا در خروجی فایل", message);
+    }
   }
 }
