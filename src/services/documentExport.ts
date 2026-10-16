@@ -24,7 +24,7 @@ const DocumentExportModule =
   NativeModules.DocumentExportModule as DocumentExportNativeModule | undefined;
 
 const safeFilename = (name: string) =>
-  `\u200E${name.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, "-")}`;
+  name.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, "-");
 
 async function ensureLegacyStoragePermission(): Promise<void> {
   if (Platform.OS !== "android" || Number(Platform.Version) >= 29) return;
