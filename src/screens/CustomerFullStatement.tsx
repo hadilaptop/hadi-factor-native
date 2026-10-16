@@ -78,8 +78,8 @@ export default function CustomerFullStatement({
   const viewportHeight = useSharedValue(0);
   const cardHeight = useSharedValue(0);
   const centeredTranslateY = useSharedValue(0);
-  const startX = useSharedValue(0);
-  const startY = useSharedValue(0);
+  const lastPanTranslationX = useSharedValue(0);
+  const lastPanTranslationY = useSharedValue(0);
   const hasInitialVerticalPosition = useRef(false);
 
   const updateCenteredPosition = (_height: number) => {
@@ -92,7 +92,19 @@ export default function CustomerFullStatement({
 
   const pinch = Gesture.Pinch()
     .onUpdate((event) => {
-      scale.value = Math.max(0.1, Math.min(4, savedScale.value * event.scale));
+      const nextScale = Math.max(
+        0.1,
+        Math.min(4, savedScale.value * event.scale),
+      );
+      const scaleRatio = nextScale / scale.value;
+
+      translateX.value +=
+        (event.focalX - STATEMENT_CARD_WIDTH / 2 - translateX.value) *
+        (1 - scaleRatio);
+      translateY.value +=
+        (event.focalY - cardHeight.value / 2 - translateY.value) *
+        (1 - scaleRatio);
+      scale.value = nextScale;
     })
     .onEnd(() => {
       savedScale.value = scale.value;
@@ -102,20 +114,32 @@ export default function CustomerFullStatement({
     .minPointers(1)
     .maxPointers(1)
     .onBegin(() => {
-      startX.value = translateX.value;
-      startY.value = translateY.value;
+      lastPanTranslationX.value = 0;
+      lastPanTranslationY.value = 0;
     })
     .onUpdate((event) => {
-      translateX.value = startX.value + event.translationX;
-      translateY.value = startY.value + event.translationY;
+      if (event.numberOfPointers > 1) {
+        lastPanTranslationX.value = event.translationX;
+        lastPanTranslationY.value = event.translationY;
+        return;
+      }
+      translateX.value += event.translationX - lastPanTranslationX.value;
+      translateY.value += event.translationY - lastPanTranslationY.value;
+      lastPanTranslationX.value = event.translationX;
+      lastPanTranslationY.value = event.translationY;
     });
 
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
+    .maxDuration(250)
+    .maxDistance(10)
     .onEnd(() => {
       scale.value = withTiming(initialScale, { duration: 250 });
       savedScale.value = initialScale;
-      translateX.value = withTiming((width - 20 - STATEMENT_CARD_WIDTH) / 2, { duration: 250 });
+      translateX.value = withTiming(
+        (width - 20 - STATEMENT_CARD_WIDTH) / 2,
+        { duration: 250 },
+      );
       translateY.value = withTiming(centeredTranslateY.value, {
         duration: 250,
       });
@@ -123,7 +147,6 @@ export default function CustomerFullStatement({
 
   const gestures = Gesture.Simultaneous(pinch, pan, doubleTap);
   const animatedCardStyle = useAnimatedStyle(() => ({
-    transformOrigin: "top center",
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
