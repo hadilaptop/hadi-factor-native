@@ -82,7 +82,7 @@ export default function CustomerFullStatement({
   const lastPanTranslationY = useSharedValue(0);
   const hasInitialVerticalPosition = useRef(false);
 
-  const updateCenteredPosition = (_height: number) => {
+  const updateCenteredPosition = (height: number) => {
     if (hasInitialVerticalPosition.current || cardHeight.value <= 0) return;
     const topOffset = 0;
     centeredTranslateY.value = topOffset;
@@ -102,7 +102,7 @@ export default function CustomerFullStatement({
         (event.focalX - STATEMENT_CARD_WIDTH / 2 - translateX.value) *
         (1 - scaleRatio);
       translateY.value +=
-        (event.focalY - cardHeight.value / 2 - translateY.value) *
+        (event.focalY - translateY.value) *
         (1 - scaleRatio);
       scale.value = nextScale;
     })
@@ -146,13 +146,14 @@ export default function CustomerFullStatement({
     });
 
   const gestures = Gesture.Simultaneous(pinch, pan, doubleTap);
-  const animatedCardStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-  }));
+const animatedCardStyle = useAnimatedStyle(() => ({
+  transformOrigin: "top center",
+  transform: [
+    { translateX: translateX.value },
+    { translateY: translateY.value },
+    { scale: scale.value },
+  ],
+}));
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -375,17 +376,17 @@ export default function CustomerFullStatement({
           >
             <GestureDetector gesture={gestures}>
               <Animated.View
-                style={[styles.statementCardContent, animatedCardStyle]}
+                style={styles.statementCardContent}
                 onLayout={(event) => {
                   cardHeight.value = event.nativeEvent.layout.height;
                   if (viewportHeight.value > 0)
                     updateCenteredPosition(viewportHeight.value);
                 }}
               >
-                <View
+                <Animated.View
                   ref={statementCaptureRef}
                   collapsable={false}
-                  style={styles.statementCard}
+                  style={[styles.statementCard, animatedCardStyle]}
                 >
                   <View style={styles.cardHeader}>
                     <CustomText style={styles.cardTitle}>
@@ -645,7 +646,7 @@ export default function CustomerFullStatement({
                       </CustomText>
                     </View>
                   </View>
-                </View>
+                </Animated.View>
               </Animated.View>
             </GestureDetector>
           </View>
