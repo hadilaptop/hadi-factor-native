@@ -22,9 +22,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Generate Android project (Expo Prebuild)
-        run: npx expo prebuild --platform android
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
