@@ -73,7 +73,7 @@ export default function CustomerFullStatement({
 
   const scale = useSharedValue(initialScale);
   const savedScale = useSharedValue(initialScale);
-  const translateX = useSharedValue((width - 20 - STATEMENT_CARD_WIDTH) / 2);
+  const translateX = useSharedValue((width - 20 - (STATEMENT_CARD_WIDTH + 48)) / 2);
   const translateY = useSharedValue(0);
   const viewportHeight = useSharedValue(0);
   const cardHeight = useSharedValue(0);
@@ -99,7 +99,7 @@ export default function CustomerFullStatement({
       const scaleRatio = nextScale / scale.value;
 
       translateX.value +=
-        (event.focalX - STATEMENT_CARD_WIDTH / 2 - translateX.value) *
+        (event.focalX - (STATEMENT_CARD_WIDTH + 48) / 2 - translateX.value) *
         (1 - scaleRatio);
       translateY.value +=
         (event.focalY - translateY.value) *
@@ -137,7 +137,7 @@ export default function CustomerFullStatement({
       scale.value = withTiming(initialScale, { duration: 250 });
       savedScale.value = initialScale;
       translateX.value = withTiming(
-        (width - 20 - STATEMENT_CARD_WIDTH) / 2,
+        (width - 20 - (STATEMENT_CARD_WIDTH + 48)) / 2,
         { duration: 250 },
       );
       translateY.value = withTiming(centeredTranslateY.value, {
@@ -383,15 +383,15 @@ const animatedCardStyle = useAnimatedStyle(() => ({
                     updateCenteredPosition(viewportHeight.value);
                 }}
               >
-                <View
+                <Animated.View
                   ref={statementCaptureRef}
                   collapsable={false}
-                  style={styles.statementExportFrame}
+                  style={[styles.statementExportFrame, animatedCardStyle]}
                 >
-                  <Animated.View
-                  collapsable={false}
-                  style={[styles.statementCard, animatedCardStyle]}
-                >
+                  <View
+                    collapsable={false}
+                    style={styles.statementCard}
+                  >
                   <View style={styles.cardHeader}>
                     <CustomText style={styles.cardTitle}>
                       صورت حساب {customer?.name}
@@ -650,8 +650,8 @@ const animatedCardStyle = useAnimatedStyle(() => ({
                       </CustomText>
                     </View>
                   </View>
+                  </View>
                 </Animated.View>
-                </View>
               </Animated.View>
             </GestureDetector>
           </View>
@@ -899,11 +899,12 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   statementCardContent: {
-    width: STATEMENT_CARD_WIDTH,
+    width: STATEMENT_CARD_WIDTH + 48,
   },
   statementExportFrame: {
     width: STATEMENT_CARD_WIDTH + 48,
-    paddingHorizontal: 24,
+    padding: 24,
+    backgroundColor: "transparent",
   },
   statementCard: {
     width: STATEMENT_CARD_WIDTH,

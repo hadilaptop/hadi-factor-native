@@ -15,7 +15,10 @@ import {
   FlatList,
 } from "react-native";
 import {
-  toPersianDigits,formatNumber,parseNumber,convertNumberToPersianWords,
+  toPersianDigits,
+  formatNumber,
+  parseNumber,
+  convertNumberToPersianWords,
 } from "../utils/numberUtils";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -30,27 +33,45 @@ import AnimatedScrollWrapper, {
 import InvoicePreview from "./InvoicePreview";
 import { getInvoices, saveInvoice } from "../storage/invoiceStorage";
 
-import CustomText from '../components/CustomText';
-import CustomTextInput from '../components/CustomTextInput';
-import JalaliDatePicker from '../components/JalaliDatePicker';
-import * as jalaali from 'jalaali-js';
+import CustomText from "../components/CustomText";
+import CustomTextInput from "../components/CustomTextInput";
+import JalaliDatePicker from "../components/JalaliDatePicker";
+import * as jalaali from "jalaali-js";
 
 const { width } = Dimensions.get("window");
 const MAX_ROWS = 12;
 
-const CustomDropdown = ({ label, value, options, selectedValue, onSelect, isOpen, onOpenChange, pickerRef }: any) => {
+const CustomDropdown = ({
+  label,
+  value,
+  options,
+  selectedValue,
+  onSelect,
+  isOpen,
+  onOpenChange,
+  pickerRef,
+}: any) => {
   return (
     <View ref={pickerRef} collapsable={false} style={styles.inputGroup}>
       {label && <CustomText style={styles.label}>{label}</CustomText>}
       <TouchableOpacity
-        style={[styles.input, styles.dropdownTrigger, isOpen && styles.inputFocused]}
+        style={[
+          styles.input,
+          styles.dropdownTrigger,
+          isOpen && styles.inputFocused,
+        ]}
         onPress={() => onOpenChange(!isOpen)}
         activeOpacity={0.8}
       >
-        <CustomText style={styles.dropdownTriggerText} numberOfLines={2}>{value}</CustomText>
-        <Ionicons name={isOpen ? "chevron-up" : "chevron-down"} size={20} color="#fff" />
+        <CustomText style={styles.dropdownTriggerText} numberOfLines={2}>
+          {value}
+        </CustomText>
+        <Ionicons
+          name={isOpen ? "chevron-up" : "chevron-down"}
+          size={20}
+          color="#fff"
+        />
       </TouchableOpacity>
-
     </View>
   );
 };
@@ -61,7 +82,7 @@ export default function InvoiceScreen({
   initialCustomer = null,
   invoiceToEdit = null,
   initialMode = null,
-  returnScreen = 'dashboard',
+  returnScreen = "dashboard",
   customers = [
     {
       id: "1",
@@ -87,15 +108,28 @@ export default function InvoiceScreen({
   const insets = useSafeAreaInsets();
   const safePaddingBottom = insets.bottom > 0 ? insets.bottom + 5 : 10;
   const bottomNavHeight = 45 + safePaddingBottom;
-  const [step, setStep] = useState(initialMode === "preview" ? "preview" : "form");
+  const [step, setStep] = useState(
+    initialMode === "preview" ? "preview" : "form",
+  );
   const [isSaving, setIsSaving] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState<"share" | "save" | null>(null);
-  const [exportAlert, setExportAlert] = useState({ visible: false, title: "", message: "", success: false });
+  const [showExportMenu, setShowExportMenu] = useState<"share" | "save" | null>(
+    null,
+  );
+  const [exportAlert, setExportAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    success: false,
+  });
   const invoiceCaptureRef = useRef<View>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
   const customerPickerRef = useRef<View>(null);
-  const [customerPickerPosition, setCustomerPickerPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [customerPickerPosition, setCustomerPickerPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
 
   const toggleCustomerDropdown = () => {
     if (isCustomerDropdownOpen) {
@@ -104,7 +138,11 @@ export default function InvoiceScreen({
     }
     customerPickerRef.current?.measureInWindow((x, y, pickerWidth, height) => {
       const screenHeight = Dimensions.get("window").height;
-      setCustomerPickerPosition({ top: Math.min(y + height + insets.top + 4, screenHeight - 270), left: x, width: pickerWidth });
+      setCustomerPickerPosition({
+        top: Math.min(y + height + insets.top + 4, screenHeight - 270),
+        left: x,
+        width: pickerWidth,
+      });
       setIsCustomerDropdownOpen(true);
     });
   };
@@ -124,7 +162,9 @@ export default function InvoiceScreen({
   const [invoiceDate, setInvoiceDate] = useState(() => {
     if (invoiceToEdit?.date) return invoiceToEdit.date;
     const today = jalaali.toJalaali(new Date());
-    return toPersianDigits(`${today.jy}/${String(today.jm).padStart(2, '0')}/${String(today.jd).padStart(2, '0')}`);
+    return toPersianDigits(
+      `${today.jy}/${String(today.jm).padStart(2, "0")}/${String(today.jd).padStart(2, "0")}`,
+    );
   });
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
@@ -133,7 +173,7 @@ export default function InvoiceScreen({
   const [buyerName, setBuyerName] = useState(
     invoiceToEdit?.buyerName ?? (initialCustomer ? initialCustomer.name : ""),
   );
-  
+
   // ✨ توابع toPersianDigits حذف شدند
   const [buyerEconomicCode, setBuyerEconomicCode] = useState(
     invoiceToEdit?.buyerEconomicCode ?? initialCustomer?.economicCode ?? "",
@@ -163,29 +203,43 @@ export default function InvoiceScreen({
   });
 
   const [sellerName, setSellerName] = useState(invoiceToEdit?.sellerName ?? "");
-  const [sellerPhone, setSellerPhone] = useState(invoiceToEdit?.sellerPhone ?? "");
-  const [sellerAddress, setSellerAddress] = useState(invoiceToEdit?.sellerAddress ?? "");
-  const [sellerEconomicCode, setSellerEconomicCode] = useState(invoiceToEdit?.sellerEconomicCode ?? "");
-  const [sellerLogo, setSellerLogo] = useState<string | null>(invoiceToEdit?.sellerLogo ?? null);
+  const [sellerPhone, setSellerPhone] = useState(
+    invoiceToEdit?.sellerPhone ?? "",
+  );
+  const [sellerAddress, setSellerAddress] = useState(
+    invoiceToEdit?.sellerAddress ?? "",
+  );
+  const [sellerEconomicCode, setSellerEconomicCode] = useState(
+    invoiceToEdit?.sellerEconomicCode ?? "",
+  );
+  const [sellerLogo, setSellerLogo] = useState<string | null>(
+    invoiceToEdit?.sellerLogo ?? null,
+  );
   const [invoiceTheme, setInvoiceTheme] = useState("blue");
 
   useEffect(() => {
     const loadCompanySettings = async () => {
       try {
-        const [name, phone, address, code, logo, storedTheme] = await AsyncStorage.multiGet([
-          "companyName",
-          "companyPhone",
-          "companyAddress",
-          "companyEconomicCode",
-          "companyLogo",
-          "invoiceTheme",
-        ]);
+        const [name, phone, address, code, logo, storedTheme] =
+          await AsyncStorage.multiGet([
+            "companyName",
+            "companyPhone",
+            "companyAddress",
+            "companyEconomicCode",
+            "companyLogo",
+            "invoiceTheme",
+          ]);
         if (storedTheme[1]) setInvoiceTheme(storedTheme[1]);
-        if (invoiceToEdit?.sellerName === undefined) setSellerName(name[1] || "");
-        if (invoiceToEdit?.sellerPhone === undefined) setSellerPhone(phone[1] || "");
-        if (invoiceToEdit?.sellerAddress === undefined) setSellerAddress(address[1] || "");
-        if (invoiceToEdit?.sellerEconomicCode === undefined) setSellerEconomicCode(code[1] || "");
-        if (invoiceToEdit?.sellerLogo === undefined) setSellerLogo(logo[1] || null);
+        if (invoiceToEdit?.sellerName === undefined)
+          setSellerName(name[1] || "");
+        if (invoiceToEdit?.sellerPhone === undefined)
+          setSellerPhone(phone[1] || "");
+        if (invoiceToEdit?.sellerAddress === undefined)
+          setSellerAddress(address[1] || "");
+        if (invoiceToEdit?.sellerEconomicCode === undefined)
+          setSellerEconomicCode(code[1] || "");
+        if (invoiceToEdit?.sellerLogo === undefined)
+          setSellerLogo(logo[1] || null);
       } catch (error) {
         console.error("Failed to load company invoice settings.", error);
       }
@@ -245,7 +299,7 @@ export default function InvoiceScreen({
       setStep("form");
       return;
     }
-      onNavigate(returnScreen);
+    onNavigate(returnScreen);
   };
 
   const grandTotal = rows.reduce((acc: number, row: any) => {
@@ -323,7 +377,8 @@ export default function InvoiceScreen({
         if (String(item.id) === String(invoiceToEdit?.id)) continue;
         if (!String(item.number).startsWith(`${customerCode}/`)) continue;
 
-        const itemIsSales = item.type === "فاکتور فروش" || item.type === "فاکتور";
+        const itemIsSales =
+          item.type === "فاکتور فروش" || item.type === "فاکتور";
         if (itemIsSales !== isSales) continue;
 
         const match = String(item.number).match(pattern);
@@ -343,7 +398,13 @@ export default function InvoiceScreen({
     return () => {
       cancelled = true;
     };
-  }, [selectedCustomerId, invoiceType, customers, invoiceToEdit?.id, invoiceToEdit?.number]);
+  }, [
+    selectedCustomerId,
+    invoiceType,
+    customers,
+    invoiceToEdit?.id,
+    invoiceToEdit?.number,
+  ]);
 
   const handleSaveToDatabase = async () => {
     if (!selectedCustomerId && !buyerName.trim()) return;
@@ -390,14 +451,21 @@ export default function InvoiceScreen({
       format,
       action,
       filename: `فاکتور-${invoiceNumber || "جدید"}`,
-      onAlert: (title, message, success) => setExportAlert({ visible: true, title, message, success }),
+      onAlert: (title, message, success) =>
+        setExportAlert({ visible: true, title, message, success }),
     });
   };
 
   return (
     <View style={styles.container}>
       <Header
-        title={step === "form" ? (invoiceToEdit ? "ویرایش فاکتور" : "صدور فاکتور جدید") : "نمایش فاکتور"}
+        title={
+          step === "form"
+            ? invoiceToEdit
+              ? "ویرایش فاکتور"
+              : "صدور فاکتور جدید"
+            : "نمایش فاکتور"
+        }
         onBack={handleClose}
         iconName="arrow-back"
       />
@@ -422,7 +490,9 @@ export default function InvoiceScreen({
                 end={{ x: 1, y: 1 }}
                 style={styles.card}
               >
-                <CustomText style={styles.sectionTitle}>مشخصات فاکتور</CustomText>
+                <CustomText style={styles.sectionTitle}>
+                  مشخصات فاکتور
+                </CustomText>
 
                 <View style={styles.inputGroup}>
                   <CustomText style={styles.label}>نوع فاکتور :</CustomText>
@@ -486,16 +556,19 @@ export default function InvoiceScreen({
                     <CustomText style={styles.label}>تاریخ فاکتور :</CustomText>
                     <View style={styles.dateInputContainer}>
                       <CustomTextInput
-                        style={[styles.input, { textAlign: 'right', flex: 1, paddingLeft: 44 }]}
-                        placeholderTextColor='rgba(255,255,255,0.45)'
+                        style={[
+                          styles.input,
+                          { textAlign: "right", flex: 1, paddingLeft: 44 },
+                        ]}
+                        placeholderTextColor="rgba(255,255,255,0.45)"
                         value={invoiceDate}
                         onChangeText={setInvoiceDate}
                       />
                       <TouchableOpacity
                         style={styles.dateIconWrapper}
                         onPress={() => setIsDatePickerVisible(true)}
-                        accessibilityRole='button'
-                        accessibilityLabel='انتخاب تاریخ فاکتور'
+                        accessibilityRole="button"
+                        accessibilityLabel="انتخاب تاریخ فاکتور"
                       >
                         <Ionicons
                           name="calendar-outline"
@@ -512,7 +585,10 @@ export default function InvoiceScreen({
                 colors={["#1f5579", "#347dad"]}
                 start={{ x: 1, y: 0 }}
                 end={{ x: 0, y: 1 }}
-                style={[styles.card, { zIndex: isCustomerDropdownOpen ? 1000 : 10 }]}
+                style={[
+                  styles.card,
+                  { zIndex: isCustomerDropdownOpen ? 1000 : 10 },
+                ]}
               >
                 <CustomDropdown
                   isOpen={isCustomerDropdownOpen}
@@ -521,8 +597,10 @@ export default function InvoiceScreen({
                   label="انتخاب مشتری از لیست :"
                   value={
                     selectedCustomerId
-                      ? customers.find((c: any) => String(c.id) === String(selectedCustomerId))
-                          ?.name
+                      ? customers.find(
+                          (c: any) =>
+                            String(c.id) === String(selectedCustomerId),
+                        )?.name
                       : " مشتری جدید "
                   }
                   selectedValue={selectedCustomerId}
@@ -544,12 +622,19 @@ export default function InvoiceScreen({
                 end={{ x: 1, y: 0 }}
                 style={[styles.card, { zIndex: 1 }]}
               >
-                <CustomText style={styles.sectionTitle}>اطلاعات خریدار</CustomText>
+                <CustomText style={styles.sectionTitle}>
+                  اطلاعات خریدار
+                </CustomText>
 
                 <View style={styles.inputGroup}>
-                  <CustomText style={styles.label}>نام خریدار / شرکت *</CustomText>
+                  <CustomText style={styles.label}>
+                    نام خریدار / شرکت *
+                  </CustomText>
                   <CustomTextInput
-                    style={[styles.input, selectedCustomerId ? { opacity: 0.7 } : {}]}
+                    style={[
+                      styles.input,
+                      selectedCustomerId ? { opacity: 0.7 } : {},
+                    ]}
                     placeholderTextColor="rgba(255,255,255,0.45)"
                     placeholder="شرکت..."
                     multiline
@@ -562,9 +647,14 @@ export default function InvoiceScreen({
 
                 <View style={styles.grid2}>
                   <View style={styles.inputGroup}>
-                    <CustomText style={styles.label}>کد اقتصادی خریدار</CustomText>
+                    <CustomText style={styles.label}>
+                      کد اقتصادی خریدار
+                    </CustomText>
                     <CustomTextInput
-                      style={[styles.input, selectedCustomerId ? { opacity: 0.7 } : {}]}
+                      style={[
+                        styles.input,
+                        selectedCustomerId ? { opacity: 0.7 } : {},
+                      ]}
                       placeholderTextColor="rgba(255,255,255,0.45)"
                       placeholder=" 0 "
                       value={buyerEconomicCode}
@@ -574,9 +664,14 @@ export default function InvoiceScreen({
                     />
                   </View>
                   <View style={styles.inputGroup}>
-                    <CustomText style={styles.label}>شماره تماس خریدار</CustomText>
+                    <CustomText style={styles.label}>
+                      شماره تماس خریدار
+                    </CustomText>
                     <CustomTextInput
-                      style={[styles.input, selectedCustomerId ? { opacity: 0.7 } : {}]}
+                      style={[
+                        styles.input,
+                        selectedCustomerId ? { opacity: 0.7 } : {},
+                      ]}
                       placeholderTextColor="rgba(255,255,255,0.45)"
                       placeholder="  0912... "
                       value={buyerPhone}
@@ -590,7 +685,10 @@ export default function InvoiceScreen({
                 <View style={styles.inputGroup}>
                   <CustomText style={styles.label}>نشانی خریدار</CustomText>
                   <CustomTextInput
-                    style={[styles.input, selectedCustomerId ? { opacity: 0.7 } : {}]}
+                    style={[
+                      styles.input,
+                      selectedCustomerId ? { opacity: 0.7 } : {},
+                    ]}
                     placeholderTextColor="rgba(255,255,255,0.45)"
                     placeholder="استان، شهر، خیابان..."
                     value={buyerAddress}
@@ -641,7 +739,9 @@ export default function InvoiceScreen({
                       )}
                     </View>
 
-                    <CustomText style={styles.labelSm}>شرح کالا / خدمات</CustomText>
+                    <CustomText style={styles.labelSm}>
+                      شرح کالا / خدمات
+                    </CustomText>
                     <CustomTextInput
                       style={[styles.input, { marginBottom: 8 }]}
                       placeholderTextColor="rgba(255,255,255,0.45)"
@@ -672,7 +772,9 @@ export default function InvoiceScreen({
                         />
                       </View>
                       <View style={{ flex: 2 }}>
-                        <CustomText style={styles.labelSm}>قیمت واحد (ریال)</CustomText>
+                        <CustomText style={styles.labelSm}>
+                          قیمت واحد (ریال)
+                        </CustomText>
                         <CustomTextInput
                           style={[styles.input, { textAlign: "left" }]}
                           placeholderTextColor="rgba(255,255,255,0.45)"
@@ -704,7 +806,9 @@ export default function InvoiceScreen({
                 ))}
 
                 <View style={styles.totalBox}>
-                  <CustomText style={styles.totalTitle}>مبلغ کل فاکتور:</CustomText>
+                  <CustomText style={styles.totalTitle}>
+                    مبلغ کل فاکتور:
+                  </CustomText>
                   <CustomText style={styles.totalAmount}>
                     {formatNumber(grandTotal)}{" "}
                     <CustomText style={styles.currencyText}>ریال</CustomText>
@@ -723,9 +827,19 @@ export default function InvoiceScreen({
                 end={{ x: 1, y: 1 }}
                 style={styles.card}
               >
-                <CustomText style={styles.sectionTitle}>توضیحات فاکتور</CustomText>
+                <CustomText style={styles.sectionTitle}>
+                  توضیحات فاکتور
+                </CustomText>
                 <CustomTextInput
-                  style={[styles.input, {fontSize:14, height: 155, textAlignVertical: "top", lineHeight: 24 }]}
+                  style={[
+                    styles.input,
+                    {
+                      fontSize: 14,
+                      height: 155,
+                      textAlignVertical: "top",
+                      lineHeight: 24,
+                    },
+                  ]}
                   placeholderTextColor="rgba(255,255,255,0.45)"
                   multiline
                   placeholder="توضیحات یا شرایط فاکتور..."
@@ -763,7 +877,7 @@ export default function InvoiceScreen({
         style={[
           styles.bottomBar,
           {
-            bottom: bottomNavHeight + 20 ,
+            bottom: bottomNavHeight + 20,
             transform: [{ translateY: bottomBarAnim }],
           },
         ]}
@@ -790,7 +904,12 @@ export default function InvoiceScreen({
             </TouchableOpacity>
           </View>
         )}
-        <View style={[styles.actionCard, step === "form" ? styles.formActionCard : styles.previewActionCard]}>
+        <View
+          style={[
+            styles.actionCard,
+            step === "form" ? styles.formActionCard : styles.previewActionCard,
+          ]}
+        >
           {step === "form" ? (
             <>
               <Animated.View
@@ -808,8 +927,20 @@ export default function InvoiceScreen({
                     onPress={() => setStep("preview")}
                   >
                     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                      <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-                      <Circle cx={12} cy={12} r={3} stroke="#ffffff" strokeWidth={2.5} />
+                      <Path
+                        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
+                        stroke="#ffffff"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <Circle
+                        cx={12}
+                        cy={12}
+                        r={3}
+                        stroke="#ffffff"
+                        strokeWidth={2.5}
+                      />
                     </Svg>
                   </TouchableOpacity>
                 </LinearGradient>
@@ -826,9 +957,26 @@ export default function InvoiceScreen({
                     {isSaving ? (
                       <ActivityIndicator color="#ffffff" />
                     ) : (
-                      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                        <Path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-                        <Polyline points="22,4 12,14.01 9,11.01" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                      <Svg
+                        width={24}
+                        height={24}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <Path
+                          d="M22 11.08V12a10 10 0 1 1-5.93-9.14"
+                          stroke="#ffffff"
+                          strokeWidth={2.5}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <Polyline
+                          points="22,4 12,14.01 9,11.01"
+                          stroke="#ffffff"
+                          strokeWidth={2.5}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </Svg>
                     )}
                   </TouchableOpacity>
@@ -843,40 +991,114 @@ export default function InvoiceScreen({
                   { transform: [{ translateX: previewActionsAnim }] },
                 ]}
               >
-                <LinearGradient colors={["#3282b8", "#0f4c75"]} style={styles.statementCircleBtn}>
+                <LinearGradient
+                  colors={["#3282b8", "#0f4c75"]}
+                  style={styles.statementCircleBtn}
+                >
                   <TouchableOpacity
                     style={styles.statementCircleTouch}
                     onPress={() => setShowExportMenu("save")}
                   >
                     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-                      <Polyline points="7 10 12 15 17 10" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-                      <Path d="M12 15V3" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                      <Path
+                        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                        stroke="#ffffff"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <Polyline
+                        points="7 10 12 15 17 10"
+                        stroke="#ffffff"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <Path
+                        d="M12 15V3"
+                        stroke="#ffffff"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </Svg>
                   </TouchableOpacity>
                 </LinearGradient>
 
-                <LinearGradient colors={["#3282b8", "#0f4c75"]} style={styles.statementCircleBtn}>
+                <LinearGradient
+                  colors={["#3282b8", "#0f4c75"]}
+                  style={styles.statementCircleBtn}
+                >
                   <TouchableOpacity
                     style={styles.statementCircleTouch}
                     onPress={() => setShowExportMenu("share")}
                   >
                     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                      <Circle cx={18} cy={5} r={3} stroke="#ffffff" strokeWidth={2.5} />
-                      <Circle cx={6} cy={12} r={3} stroke="#ffffff" strokeWidth={2.5} />
-                      <Circle cx={18} cy={19} r={3} stroke="#ffffff" strokeWidth={2.5} />
-                      <Path d="M8.59 13.51L15.42 17.49M15.41 6.51L8.59 10.49" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                      <Circle
+                        cx={18}
+                        cy={5}
+                        r={3}
+                        stroke="#ffffff"
+                        strokeWidth={2.5}
+                      />
+                      <Circle
+                        cx={6}
+                        cy={12}
+                        r={3}
+                        stroke="#ffffff"
+                        strokeWidth={2.5}
+                      />
+                      <Circle
+                        cx={18}
+                        cy={19}
+                        r={3}
+                        stroke="#ffffff"
+                        strokeWidth={2.5}
+                      />
+                      <Path
+                        d="M8.59 13.51L15.42 17.49M15.41 6.51L8.59 10.49"
+                        stroke="#ffffff"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </Svg>
                   </TouchableOpacity>
                 </LinearGradient>
 
                 {initialMode !== "preview" && (
-                  <LinearGradient colors={["#10b981", "#059669"]} style={styles.statementCircleBtn}>
-                    <TouchableOpacity style={styles.statementCircleTouch} onPress={handleSaveToDatabase} disabled={isSaving}>
-                      {isSaving ? <ActivityIndicator color="#ffffff" /> : (
-                        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                          <Path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-                          <Polyline points="22 4 12 14.01 9 11.01" stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                  <LinearGradient
+                    colors={["#10b981", "#059669"]}
+                    style={styles.statementCircleBtn}
+                  >
+                    <TouchableOpacity
+                      style={styles.statementCircleTouch}
+                      onPress={handleSaveToDatabase}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? (
+                        <ActivityIndicator color="#ffffff" />
+                      ) : (
+                        <Svg
+                          width={24}
+                          height={24}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <Path
+                            d="M22 11.08V12a10 10 0 1 1-5.93-9.14"
+                            stroke="#ffffff"
+                            strokeWidth={2.5}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <Polyline
+                            points="22 4 12 14.01 9 11.01"
+                            stroke="#ffffff"
+                            strokeWidth={2.5}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </Svg>
                       )}
                     </TouchableOpacity>
@@ -902,22 +1124,70 @@ export default function InvoiceScreen({
         onRequestClose={() => setIsCustomerDropdownOpen(false)}
       >
         <View style={styles.dropdownModalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsCustomerDropdownOpen(false)} />
-          <View style={[styles.dropdownModalContent, { top: customerPickerPosition.top, left: customerPickerPosition.left, width: customerPickerPosition.width }]}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setIsCustomerDropdownOpen(false)}
+          />
+          <View
+            style={[
+              styles.dropdownModalContent,
+              {
+                top: customerPickerPosition.top,
+                left: customerPickerPosition.left,
+                width: customerPickerPosition.width,
+              },
+            ]}
+          >
             <LinearGradient
               colors={["#22628e", "#1f5579"]}
               start={{ x: 1, y: 0 }}
               end={{ x: 0, y: 1 }}
               style={styles.dropdownList}
             >
-              <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator nestedScrollEnabled keyboardShouldPersistTaps="always">
-                {[{ label: " مشتری جدید ", value: null }, ...customers.map((c: any) => ({ label: c.name, customerCode: c.customerCode, value: c.id }))].map((opt: any, index: number) => {
-                  const isSelected = String(opt.value ?? "") === String(selectedCustomerId ?? "");
+              <ScrollView
+                style={styles.dropdownScroll}
+                showsVerticalScrollIndicator
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="always"
+              >
+                {[
+                  { label: " مشتری جدید ", value: null },
+                  ...customers.map((c: any) => ({
+                    label: c.name,
+                    customerCode: c.customerCode,
+                    value: c.id,
+                  })),
+                ].map((opt: any, index: number) => {
+                  const isSelected =
+                    String(opt.value ?? "") ===
+                    String(selectedCustomerId ?? "");
                   return (
-                    <TouchableOpacity key={String(opt.value ?? index)} style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]} onPress={() => { handleCustomerSelect(opt.value); setIsCustomerDropdownOpen(false); }} activeOpacity={0.8}>
-                      <CustomText style={styles.dropdownItemText} numberOfLines={2}>{opt.label}</CustomText>
-                      {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
-                      {opt.customerCode != null && <CustomText style={styles.dropdownCodeText}>{toPersianDigits(String(opt.customerCode))}</CustomText>}
+                    <TouchableOpacity
+                      key={String(opt.value ?? index)}
+                      style={[
+                        styles.dropdownItem,
+                        isSelected && styles.dropdownItemSelected,
+                      ]}
+                      onPress={() => {
+                        handleCustomerSelect(opt.value);
+                        setIsCustomerDropdownOpen(false);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <CustomText
+                        style={styles.dropdownItemText}
+                        numberOfLines={2}
+                      >
+                        {opt.label}
+                      </CustomText>
+                      {isSelected && (
+                        <Ionicons name="checkmark" size={18} color="#fff" />
+                      )}
+                      {opt.customerCode != null && (
+                        <CustomText style={styles.dropdownCodeText}>
+                          {toPersianDigits(String(opt.customerCode))}
+                        </CustomText>
+                      )}
                     </TouchableOpacity>
                   );
                 })}
@@ -937,7 +1207,9 @@ export default function InvoiceScreen({
         title={exportAlert.title}
         message={exportAlert.message}
         success={exportAlert.success}
-        onClose={() => setExportAlert((current) => ({ ...current, visible: false }))}
+        onClose={() =>
+          setExportAlert((current) => ({ ...current, visible: false }))
+        }
       />
     </View>
   );
@@ -968,7 +1240,6 @@ const styles = StyleSheet.create({
     borderColor: "#a2c8e2",
   },
   sectionTitle: {
-    
     color: "#fff",
     fontSize: 16,
     marginBottom: 12,
@@ -986,7 +1257,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    
     fontSize: 14,
     color: "#ffffff",
     textAlign: "right",
@@ -994,14 +1264,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   labelSm: {
-    
     fontSize: 13,
     color: "#ffffff",
     textAlign: "right",
     marginBottom: 4,
   },
   input: {
-    
     backgroundColor: "rgba(255, 255, 255, 0.12)",
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.35)",
@@ -1047,7 +1315,6 @@ const styles = StyleSheet.create({
     borderColor: "#10b981",
   },
   typeBtnText: {
-    
     color: "#fff",
     fontSize: 12,
     textAlign: "center",
@@ -1130,7 +1397,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   addButtonText: {
-    
     color: "#fff",
     fontSize: 13,
   },
@@ -1152,7 +1418,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   itemBadge: {
-    
     color: "#fff",
     fontSize: 13,
     backgroundColor: "rgba(255,255,255,0.2)",
@@ -1187,20 +1452,17 @@ const styles = StyleSheet.create({
     borderColor: "#a2c8e2",
   },
   totalTitle: {
-    
     color: "#fff",
     fontSize: 15,
     textAlign: "right",
     marginBottom: 4,
   },
   totalAmount: {
-    
     color: "#fff",
     fontSize: 22,
     textAlign: "left",
   },
   currencyText: {
-    
     fontSize: 15,
     color: "#e0f2fe",
   },
@@ -1214,7 +1476,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   wordsText: {
-    
     color: "#e0f2fe",
     fontSize: 14,
     textAlign: "center",
@@ -1316,23 +1577,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-exportMenu: {
-  position: "absolute",
-  bottom: 120,
-  left: 65,
-  backgroundColor: "#0f4c75",
-  borderRadius: 12,
-  padding: 10,
-  minWidth: 150,
-  zIndex: 110,
-  elevation: 12,
-},
+  exportMenu: {
+    position: "absolute",
+    bottom: 120,
+    left: 65,
+    backgroundColor: "#0f4c75",
+    borderRadius: 12,
+    padding: 10,
+    minWidth: 150,
+    zIndex: 110,
+    elevation: 12,
+  },
   exportMenuItem: {
     paddingVertical: 10,
     alignItems: "center",
   },
   exportMenuText: {
-    
     color: "#fff",
     fontSize: 15,
   },

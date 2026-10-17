@@ -89,7 +89,7 @@ export default function InvoicePreview({
   const themeColors = themes[invoiceTheme] || themes.blue;
   const viewportHeight = Math.max(height - 260, 300);
   const initialScale = Math.min(Math.max((width - 30) / CARD_WIDTH, 0.1), 1);
-  const initialTranslateY = (viewportHeight - (CARD_MIN_HEIGHT + 120)) / 2;
+  const initialTranslateY = (viewportHeight - (CARD_MIN_HEIGHT + 48)) / 2 + 60;
   const scale = useSharedValue(initialScale);
   const savedScale = useSharedValue(initialScale);
   const translateX = useSharedValue(0);
@@ -104,8 +104,8 @@ export default function InvoicePreview({
       const nextScale = Math.max(0.1, Math.min(4, savedScale.value * event.scale));
       const scaleRatio = nextScale / scale.value;
 
-      translateX.value += (event.focalX - CARD_WIDTH / 2 - translateX.value) * (1 - scaleRatio);
-      translateY.value += (event.focalY - 24 - cardHeight.value / 2 - translateY.value) * (1 - scaleRatio);
+      translateX.value += (event.focalX - (CARD_WIDTH + 48) / 2 - translateX.value) * (1 - scaleRatio);
+      translateY.value += (event.focalY - translateY.value) * (1 - scaleRatio);
       scale.value = nextScale;
     })
     .onEnd(() => {
@@ -144,6 +144,7 @@ export default function InvoicePreview({
 
   const gestures = Gesture.Simultaneous(pinch, pan, doubleTap);
   const animatedCardStyle = useAnimatedStyle(() => ({
+    transformOrigin: "top center",
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
@@ -156,24 +157,28 @@ export default function InvoicePreview({
       <View
         style={[styles.previewViewport, { height: viewportHeight }]}
         onLayout={(event) => {
-          centeredTranslateY.value = (event.nativeEvent.layout.height - cardHeight.value) / 2 - 24;
+          centeredTranslateY.value = (event.nativeEvent.layout.height - cardHeight.value) / 2 + 60;
           translateY.value = centeredTranslateY.value;
         }}
       >
         <GestureDetector gesture={gestures}>
-          <View
-            ref={captureTargetRef}
-            collapsable={false}
-            style={styles.previewCard}
-          >
+          <Animated.View style={styles.previewCardContent}>
             <Animated.View
+              ref={captureTargetRef}
               collapsable={false}
               onLayout={(event) => {
                 cardHeight.value = event.nativeEvent.layout.height;
-                centeredTranslateY.value = (viewportHeight - cardHeight.value) / 2 - 24;
+                centeredTranslateY.value = (viewportHeight - cardHeight.value) / 2 + 60;
                 translateY.value = centeredTranslateY.value;
               }}
-              style={[styles.invoiceInner, { borderColor: themeColors.primary }, animatedCardStyle]}
+              style={[styles.previewCard, animatedCardStyle]}
+            >
+            <View
+              collapsable={false}
+              style={[
+                styles.invoiceInner,
+                { borderColor: themeColors.primary },
+              ]}
             >
               <View style={[styles.previewHeader, { borderBottomColor: themeColors.secondary }]}>
                 <View style={styles.previewHeaderCenter}>
@@ -294,8 +299,9 @@ export default function InvoicePreview({
                   <Text style={styles.previewFooterText}>{toPersianDigits(sellerPhone)}</Text>
                 ) : null}
               </View>
+            </View>
             </Animated.View>
-          </View>
+          </Animated.View>
         </GestureDetector>
       </View>
     </GestureHandlerRootView>
@@ -311,9 +317,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-start",
   },
+  previewCardContent: {
+    width: CARD_WIDTH + 48,
+  },
   previewCard: {
-    width: CARD_WIDTH,
+    width: CARD_WIDTH + 48,
     padding: 24,
+    backgroundColor: "transparent",
   },
   invoiceInner: {
     width: "100%",
