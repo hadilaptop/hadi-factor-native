@@ -89,7 +89,7 @@ export default function InvoicePreview({
   const themeColors = themes[invoiceTheme] || themes.blue;
   const viewportHeight = Math.max(height - 260, 300);
   const initialScale = Math.min(Math.max((width - 30) / CARD_WIDTH, 0.1), 1);
-  const initialTranslateY = (viewportHeight - (CARD_MIN_HEIGHT + 48)) / 2 + 60;
+  const initialTranslateY = 0;
   const scale = useSharedValue(initialScale);
   const savedScale = useSharedValue(initialScale);
   const translateX = useSharedValue(0);
@@ -157,7 +157,7 @@ export default function InvoicePreview({
       <View
         style={[styles.previewViewport, { height: viewportHeight }]}
         onLayout={(event) => {
-          centeredTranslateY.value = (event.nativeEvent.layout.height - cardHeight.value) / 2 + 60;
+          centeredTranslateY.value = 0;
           translateY.value = centeredTranslateY.value;
         }}
       >
@@ -168,7 +168,7 @@ export default function InvoicePreview({
               collapsable={false}
               onLayout={(event) => {
                 cardHeight.value = event.nativeEvent.layout.height;
-                centeredTranslateY.value = (viewportHeight - cardHeight.value) / 2 + 60;
+                centeredTranslateY.value = 0;
                 translateY.value = centeredTranslateY.value;
               }}
               style={[styles.previewCard, animatedCardStyle]}

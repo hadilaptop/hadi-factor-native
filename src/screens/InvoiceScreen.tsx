@@ -450,7 +450,7 @@ export default function InvoiceScreen({
       viewRef: invoiceCaptureRef,
       format,
       action,
-      filename: `فاکتور-${invoiceNumber || "جدید"}`,
+      filename: `${invoiceNumber || "جدید"}`,
       onAlert: (title, message, success) =>
         setExportAlert({ visible: true, title, message, success }),
     });
