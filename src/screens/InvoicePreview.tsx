@@ -161,9 +161,12 @@ export default function InvoicePreview({
         }}
       >
         <GestureDetector gesture={gestures}>
-          <View style={styles.previewCard}>
+          <View
+            ref={captureTargetRef}
+            collapsable={false}
+            style={styles.previewCard}
+          >
             <Animated.View
-              ref={captureTargetRef}
               collapsable={false}
               onLayout={(event) => {
                 cardHeight.value = event.nativeEvent.layout.height;

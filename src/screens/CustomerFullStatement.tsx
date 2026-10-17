@@ -383,8 +383,12 @@ const animatedCardStyle = useAnimatedStyle(() => ({
                     updateCenteredPosition(viewportHeight.value);
                 }}
               >
-                <Animated.View
+                <View
                   ref={statementCaptureRef}
+                  collapsable={false}
+                  style={styles.statementExportFrame}
+                >
+                  <Animated.View
                   collapsable={false}
                   style={[styles.statementCard, animatedCardStyle]}
                 >
@@ -647,6 +651,7 @@ const animatedCardStyle = useAnimatedStyle(() => ({
                     </View>
                   </View>
                 </Animated.View>
+                </View>
               </Animated.View>
             </GestureDetector>
           </View>
@@ -895,6 +900,10 @@ const styles = StyleSheet.create({
   },
   statementCardContent: {
     width: STATEMENT_CARD_WIDTH,
+  },
+  statementExportFrame: {
+    width: STATEMENT_CARD_WIDTH + 48,
+    paddingHorizontal: 24,
   },
   statementCard: {
     width: STATEMENT_CARD_WIDTH,
