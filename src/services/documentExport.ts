@@ -70,7 +70,7 @@ export async function exportViewFile({
         encoding: FileSystem.EncodingType.Base64,
       });
       const pdf = await Print.printToFileAsync({
-        html: `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@page { margin: 24px; } html, body { margin: 0; padding: 0; } img { display: block; width: 100%; height: auto; }</style></head><body><img src="data:image/png;base64,${imageBase64}" /></body></html>`,
+        html: `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@page { margin: 0; } html, body { margin: 0; padding: 0; background-color: #ffffff; } img { display: block; width: 100%; height: auto; }</style></head><body><img src="data:image/png;base64,${imageBase64}" /></body></html>`,
       });
       fileUri = pdf.uri;
       mimeType = "application/pdf";
