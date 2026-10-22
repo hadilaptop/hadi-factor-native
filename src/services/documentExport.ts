@@ -58,7 +58,6 @@ export async function exportViewFile({
       format: "png",
       quality: 1,
       result: "tmpfile",
-      backgroundColor: "#ffffff",
     });
 
     let fileUri = imageUri;

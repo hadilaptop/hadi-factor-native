@@ -53,6 +53,7 @@ interface InvoicePreviewProps {
   amountInWords: string;
   noteText: string;
   captureTargetRef?: React.RefObject<View | null>;
+  isCapturing?: boolean;
 }
 
 const CARD_WIDTH = 950;
@@ -77,6 +78,7 @@ export default function InvoicePreview({
   amountInWords,
   noteText,
   captureTargetRef,
+  isCapturing = false,
 }: InvoicePreviewProps) {
   const { width, height } = useWindowDimensions();
   const themes: Record<string, { primary: string; secondary: string; light: string; border: string }> = {
@@ -171,7 +173,11 @@ export default function InvoicePreview({
                 centeredTranslateY.value = 0;
                 translateY.value = centeredTranslateY.value;
               }}
-              style={[styles.previewCard, animatedCardStyle]}
+              style={[
+                styles.previewCard,
+                { backgroundColor: isCapturing ? "#ffffff" : "transparent" },
+                animatedCardStyle,
+              ]}
             >
             <View
               collapsable={false}

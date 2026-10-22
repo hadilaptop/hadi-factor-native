@@ -112,6 +112,7 @@ export default function InvoiceScreen({
     initialMode === "preview" ? "preview" : "form",
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState<"share" | "save" | null>(
     null,
   );
@@ -446,14 +447,21 @@ export default function InvoiceScreen({
     const action = showExportMenu;
     setShowExportMenu(null);
     if (action !== "share" && action !== "save") return;
-    await exportViewFile({
-      viewRef: invoiceCaptureRef,
-      format,
-      action,
-      filename: `${invoiceNumber || "جدید"}`,
-      onAlert: (title, message, success) =>
-        setExportAlert({ visible: true, title, message, success }),
-    });
+    setIsCapturing(true);
+    // یک فریم صبر تا پس‌زمینه سفید واقعاً رندر شود
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    try {
+      await exportViewFile({
+        viewRef: invoiceCaptureRef,
+        format,
+        action,
+        filename: `${invoiceNumber || "جدید"}`,
+        onAlert: (title, message, success) =>
+          setExportAlert({ visible: true, title, message, success }),
+      });
+    } finally {
+      setIsCapturing(false);
+    }
   };
 
   return (
@@ -851,6 +859,7 @@ export default function InvoiceScreen({
           ) : (
             <InvoicePreview
               captureTargetRef={invoiceCaptureRef}
+              isCapturing={isCapturing}
               invoiceType={invoiceType}
               invoiceTheme={invoiceTheme}
               sellerName={sellerName}
