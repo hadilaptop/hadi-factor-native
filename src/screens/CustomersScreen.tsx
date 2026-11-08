@@ -43,7 +43,7 @@ export default function CustomersScreen({
     null
   );
   const [deleteModalData, setDeleteModalData] = useState<Customer | null>(null);
-  const actionButtonRefs = useRef<Record<string, View | null>>({});
+  const actionButtonRefs = useRef<Record<string, React.ComponentRef<typeof TouchableOpacity> | null>>({});
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 8 });
 
   const filteredCustomers = useMemo(() => {

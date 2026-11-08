@@ -184,7 +184,7 @@ export default function App() {
   </View>;
 
   return <SafeAreaProvider><SafeAreaView style={styles.container} edges={['left', 'right']}>
-    <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+    <StatusBar barStyle="light-content" />
     {renderScreen()}
     <BottomNav
       activeTab={currentScreen === 'customerPayment' ? 'receipt' : currentScreen}

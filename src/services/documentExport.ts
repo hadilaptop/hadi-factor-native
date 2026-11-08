@@ -1,3 +1,4 @@
+import type { ComponentRef } from "react";
 import { Alert, NativeModules, PermissionsAndroid, Platform, View } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Print from "expo-print";
@@ -8,7 +9,7 @@ type ExportFormat = "png" | "pdf";
 type ExportAction = "share" | "save";
 
 type ExportOptions = {
-  viewRef: { current: View | null };
+  viewRef: { current: ComponentRef<typeof View> | null };
   format: ExportFormat;
   action: ExportAction;
   filename: string;
@@ -63,6 +64,7 @@ export async function exportViewFile({
     let fileUri = imageUri;
     let mimeType = "image/png";
     let extension = "png";
+    let generatedPdfBase64: string | undefined;
 
     if (format === "pdf") {
       const imageBase64 = await FileSystem.readAsStringAsync(imageUri, {
@@ -70,8 +72,10 @@ export async function exportViewFile({
       });
       const pdf = await Print.printToFileAsync({
         html: `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@page { margin: 0; } html, body { margin: 0; padding: 0; background-color: #ffffff; } img { display: block; width: 100%; height: auto; }</style></head><body><img src="data:image/png;base64,${imageBase64}" /></body></html>`,
+        base64: action === "save",
       });
       fileUri = pdf.uri;
+      generatedPdfBase64 = pdf.base64;
       mimeType = "application/pdf";
       extension = "pdf";
     }
@@ -95,7 +99,7 @@ export async function exportViewFile({
       throw new Error("ذخیره مستقیم در حافظه عمومی فقط در نسخه اندروید پشتیبانی می‌شود.");
     }
 
-    const fileBase64 = await FileSystem.readAsStringAsync(fileUri, {
+    const fileBase64 = generatedPdfBase64 ?? await FileSystem.readAsStringAsync(fileUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
 

@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   ScrollView,
-  FlatList,
 } from "react-native";
 import {
   toPersianDigits,
@@ -41,12 +40,30 @@ import * as jalaali from "jalaali-js";
 const { width } = Dimensions.get("window");
 const MAX_ROWS = 12;
 
+// نرمال‌سازی اقلام فاکتور: اگر رشته JSON باشد پارس می‌کند و کلیدهای نام‌گذاری متفاوت را یکدست می‌کند
+const normalizeInvoiceItems = (rawItems: any) => {
+  let items: any = rawItems;
+  if (typeof items === "string") {
+    try {
+      items = JSON.parse(items);
+    } catch {
+      items = null;
+    }
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    return [{ id: Date.now(), desc: "", quantity: "", unitPrice: "" }];
+  }
+  return items.map((it: any, idx: number) => ({
+    id: it?.id ?? `${Date.now()}-${idx}`,
+    desc: it?.desc ?? it?.name ?? it?.description ?? "",
+    quantity: String(it?.quantity ?? it?.qty ?? ""),
+    unitPrice: String(it?.unitPrice ?? it?.price ?? it?.fee ?? ""),
+  }));
+};
+
 const CustomDropdown = ({
   label,
   value,
-  options,
-  selectedValue,
-  onSelect,
   isOpen,
   onOpenChange,
   pickerRef,
@@ -60,7 +77,7 @@ const CustomDropdown = ({
           styles.dropdownTrigger,
           isOpen && styles.inputFocused,
         ]}
-        onPress={() => onOpenChange(!isOpen)}
+        onPress={() => onOpenChange()}
         activeOpacity={0.8}
       >
         <CustomText style={styles.dropdownTriggerText} numberOfLines={2}>
@@ -83,22 +100,7 @@ export default function InvoiceScreen({
   invoiceToEdit = null,
   initialMode = null,
   returnScreen = "dashboard",
-  customers = [
-    {
-      id: "1",
-      name: "شرکت مکعب طلایی",
-      phone: "09123456789",
-      economicCode: "4112233",
-      address: "تهران",
-    },
-    {
-      id: "2",
-      name: "سپاهان پخت",
-      phone: "09131112233",
-      economicCode: "998877",
-      address: "اصفهان",
-    },
-  ],
+  customers = [],
 }: any) {
   const slideAnim = useRef(new Animated.Value(width)).current;
   const bottomBarAnim = useRef(new Animated.Value(150)).current;
@@ -122,10 +124,10 @@ export default function InvoiceScreen({
     message: "",
     success: false,
   });
-  const invoiceCaptureRef = useRef<View>(null);
+  const invoiceCaptureRef = useRef<React.ComponentRef<typeof View>>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
-  const customerPickerRef = useRef<View>(null);
+  const customerPickerRef = useRef<React.ComponentRef<typeof View>>(null);
   const [customerPickerPosition, setCustomerPickerPosition] = useState({
     top: 0,
     left: 0,
@@ -156,7 +158,6 @@ export default function InvoiceScreen({
   const [invoiceType, setInvoiceType] = useState(
     invoiceToEdit?.type || "پیش فاکتور",
   );
-  // ✨ توابع toPersianDigits حذف شدند
   const [invoiceNumber, setInvoiceNumber] = useState(
     invoiceToEdit?.number || "1001",
   );
@@ -169,13 +170,15 @@ export default function InvoiceScreen({
   });
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
-    invoiceToEdit?.customerId || initialCustomer?.id || null,
+    invoiceToEdit?.customerId != null
+      ? String(invoiceToEdit.customerId)
+      : initialCustomer?.id != null
+        ? String(initialCustomer.id)
+        : null,
   );
   const [buyerName, setBuyerName] = useState(
     invoiceToEdit?.buyerName ?? (initialCustomer ? initialCustomer.name : ""),
   );
-
-  // ✨ توابع toPersianDigits حذف شدند
   const [buyerEconomicCode, setBuyerEconomicCode] = useState(
     invoiceToEdit?.buyerEconomicCode ?? initialCustomer?.economicCode ?? "",
   );
@@ -186,11 +189,7 @@ export default function InvoiceScreen({
     invoiceToEdit?.buyerAddress ?? initialCustomer?.address ?? "",
   );
 
-  const [rows, setRows] = useState(
-    invoiceToEdit?.items || [
-      { id: Date.now(), desc: "", quantity: "", unitPrice: "" },
-    ],
-  );
+  const [rows, setRows] = useState(() => normalizeInvoiceItems(invoiceToEdit?.items));
 
   const [noteText, setNoteText] = useState(() => {
     if (invoiceToEdit && invoiceToEdit.note !== undefined)
@@ -340,11 +339,10 @@ export default function InvoiceScreen({
       setBuyerEconomicCode("");
       return;
     }
-    const cust = customers.find((c: any) => c.id === custId);
+    const cust = customers.find((c: any) => String(c.id) === String(custId));
     if (cust) {
       setBuyerName(cust.name || "");
       setBuyerAddress(cust.address || "");
-      // ✨ توابع toPersianDigits حذف شدند
       setBuyerPhone(cust.phone || "");
       setBuyerEconomicCode(cust.economicCode || "");
     }
@@ -371,30 +369,34 @@ export default function InvoiceScreen({
     const isSales = invoiceType === "فاکتور فروش" || invoiceType === "فاکتور";
     const pattern = isSales ? /\/(\d+)$/ : /\/b\/(\d+)$/i;
 
-    getInvoices().then((savedInvoices) => {
-      let highestNumber = isSales ? 100 : 500;
+    getInvoices()
+      .then((savedInvoices) => {
+        if (cancelled) return;
+        const list = Array.isArray(savedInvoices) ? savedInvoices : [];
+        let highestNumber = isSales ? 100 : 500;
 
-      for (const item of savedInvoices) {
-        if (String(item.id) === String(invoiceToEdit?.id)) continue;
-        if (!String(item.number).startsWith(`${customerCode}/`)) continue;
+        for (const item of list) {
+          if (String(item.id) === String(invoiceToEdit?.id)) continue;
+          if (!String(item.number).startsWith(`${customerCode}/`)) continue;
 
-        const itemIsSales =
-          item.type === "فاکتور فروش" || item.type === "فاکتور";
-        if (itemIsSales !== isSales) continue;
+          const itemIsSales =
+            item.type === "فاکتور فروش" || item.type === "فاکتور";
+          if (itemIsSales !== isSales) continue;
 
-        const match = String(item.number).match(pattern);
-        if (match) highestNumber = Math.max(highestNumber, Number(match[1]));
-      }
+          const match = String(item.number).match(pattern);
+          if (match) highestNumber = Math.max(highestNumber, Number(match[1]));
+        }
 
-      if (!cancelled) {
         const nextNumber = highestNumber + 1;
         setInvoiceNumber(
           isSales
             ? `${customerCode}/${nextNumber}`
             : `${customerCode}/b/${nextNumber}`,
         );
-      }
-    });
+      })
+      .catch((err) => {
+        console.error("Failed to generate invoice number:", err);
+      });
 
     return () => {
       cancelled = true;
@@ -438,6 +440,8 @@ export default function InvoiceScreen({
         onInvoiceSaved?.(invoice);
         handleClose();
       }
+    } catch (err) {
+      console.error("Failed to save invoice:", err);
     } finally {
       setIsSaving(false);
     }
@@ -448,7 +452,6 @@ export default function InvoiceScreen({
     setShowExportMenu(null);
     if (action !== "share" && action !== "save") return;
     setIsCapturing(true);
-    // یک فریم صبر تا پس‌زمینه سفید واقعاً رندر شود
     await new Promise((resolve) => setTimeout(resolve, 120));
     try {
       await exportViewFile({
@@ -556,7 +559,7 @@ export default function InvoiceScreen({
                       style={[styles.input, { textAlign: "center" }]}
                       placeholderTextColor="rgba(255,255,255,0.45)"
                       value={invoiceNumber}
-                      onChangeText={setInvoiceNumber} // ✨ تغییر فرمت برداشته شد
+                      onChangeText={setInvoiceNumber}
                       keyboardType="numeric"
                     />
                   </View>
@@ -608,19 +611,9 @@ export default function InvoiceScreen({
                       ? customers.find(
                           (c: any) =>
                             String(c.id) === String(selectedCustomerId),
-                        )?.name
+                        )?.name ?? " مشتری جدید "
                       : " مشتری جدید "
                   }
-                  selectedValue={selectedCustomerId}
-                  options={[
-                    { label: " مشتری جدید ", value: null },
-                    ...customers.map((c: any) => ({
-                      label: c.name,
-                      customerCode: c.customerCode,
-                      value: c.id,
-                    })),
-                  ]}
-                  onSelect={handleCustomerSelect}
                 />
               </LinearGradient>
 
@@ -666,7 +659,7 @@ export default function InvoiceScreen({
                       placeholderTextColor="rgba(255,255,255,0.45)"
                       placeholder=" 0 "
                       value={buyerEconomicCode}
-                      onChangeText={setBuyerEconomicCode} // ✨ تغییر فرمت برداشته شد
+                      onChangeText={setBuyerEconomicCode}
                       keyboardType="numeric"
                       editable={!selectedCustomerId}
                     />
@@ -683,7 +676,7 @@ export default function InvoiceScreen({
                       placeholderTextColor="rgba(255,255,255,0.45)"
                       placeholder="  0912... "
                       value={buyerPhone}
-                      onChangeText={setBuyerPhone} // ✨ تغییر فرمت برداشته شد
+                      onChangeText={setBuyerPhone}
                       keyboardType="phone-pad"
                       editable={!selectedCustomerId}
                     />
@@ -768,13 +761,13 @@ export default function InvoiceScreen({
                         <CustomTextInput
                           style={[styles.input, { textAlign: "center" }]}
                           placeholderTextColor="rgba(255,255,255,0.45)"
-                          placeholder="1"
+                          placeholder="0"
                           keyboardType="numeric"
                           value={row.quantity}
                           onChangeText={(text: string) => {
                             const cleaned = text.replace(/[^0-9۰-۹]/g, "");
                             const newRows = [...rows];
-                            newRows[index].quantity = cleaned; // ✨ تغییر فرمت برداشته شد
+                            newRows[index].quantity = cleaned;
                             setRows(newRows);
                           }}
                         />
@@ -1028,7 +1021,6 @@ export default function InvoiceScreen({
                         stroke="#ffffff"
                         strokeWidth={2.5}
                         strokeLinecap="round"
-                        strokeLinejoin="round"
                       />
                     </Svg>
                   </TouchableOpacity>
@@ -1160,7 +1152,7 @@ export default function InvoiceScreen({
                 keyboardShouldPersistTaps="always"
               >
                 {[
-                  { label: " مشتری جدید ", value: null },
+                  { label: " مشتری جدید ", value: null, customerCode: null },
                   ...customers.map((c: any) => ({
                     label: c.name,
                     customerCode: c.customerCode,
@@ -1172,13 +1164,15 @@ export default function InvoiceScreen({
                     String(selectedCustomerId ?? "");
                   return (
                     <TouchableOpacity
-                      key={String(opt.value ?? index)}
+                      key={String(opt.value ?? `new-${index}`)}
                       style={[
                         styles.dropdownItem,
                         isSelected && styles.dropdownItemSelected,
                       ]}
                       onPress={() => {
-                        handleCustomerSelect(opt.value);
+                        handleCustomerSelect(
+                          opt.value != null ? String(opt.value) : null,
+                        );
                         setIsCustomerDropdownOpen(false);
                       }}
                       activeOpacity={0.8}

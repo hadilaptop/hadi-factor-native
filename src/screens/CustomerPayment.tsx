@@ -55,7 +55,7 @@ export default function CustomerPayment({
   const initialCustomerId = customer?.id ?? paymentToEdit?.customerId ?? "";
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | number>(initialCustomerId);
   const [customerPickerVisible, setCustomerPickerVisible] = useState(false);
-  const customerPickerRef = useRef<View>(null);
+  const customerPickerRef = useRef<React.ComponentRef<typeof View>>(null);
   const [customerPickerPosition, setCustomerPickerPosition] = useState({
     top: 0,
     left: 0,

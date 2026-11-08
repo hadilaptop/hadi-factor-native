@@ -7,13 +7,15 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/Header';
 import CustomText from '../components/CustomText';
 import CustomTextInput from '../components/CustomTextInput';
-import { toPersianDigits, formatNumber, getCurrentPersianDate } from '../utils/invoiceHelpers';
+import JalaliDatePicker from '../components/JalaliDatePicker';
+import { toPersianDigits, formatNumber, parseNumber, getCurrentPersianDate } from '../utils/invoiceHelpers';
 import { Customer } from '../storage/customerStorage';
 
 type CustomerStatementScreenProps = {
@@ -23,6 +25,32 @@ type CustomerStatementScreenProps = {
   onBack: () => void;
   onNavigate?: (screen: string) => void;
   onSaveSettlement?: (settlement: any) => Promise<void> | void;
+};
+
+// محاسبه امن جمع هر ردیف فاکتور، حتی وقتی کلیدها یا نوع داده‌ها متفاوت باشند
+const getItemQuantity = (it: any): number => {
+  const raw = it?.quantity ?? it?.qty ?? 1;
+  const n = parseNumber(raw);
+  return isFinite(n) && n > 0 ? n : 1;
+};
+
+const getItemUnitPrice = (it: any): number => {
+  const raw = it?.unitPrice ?? it?.price ?? it?.fee ?? 0;
+  const n = parseNumber(raw);
+  return isFinite(n) ? n : 0;
+};
+
+const getItemTotal = (it: any): number => {
+  const explicitTotal = parseNumber(it?.total ?? it?.sum ?? 0);
+  if (isFinite(explicitTotal) && explicitTotal > 0) return explicitTotal;
+  const computed = getItemQuantity(it) * getItemUnitPrice(it);
+  return isFinite(computed) ? computed : 0;
+};
+
+const formatCellNumber = (n: number): string => {
+  if (!isFinite(n) || n === 0) return '۰';
+  const s = formatNumber(n);
+  return s || '۰';
 };
 
 export default function CustomerStatementScreen({
@@ -40,6 +68,7 @@ export default function CustomerStatementScreen({
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [expandedItems, setExpandedItems] = useState<{ [key: string]: boolean }>({});
   const [showDateModal, setShowDateModal] = useState(false);
+  const [datePickerTarget, setDatePickerTarget] = useState<'start' | 'end' | null>(null);
   const [showExportModal, setShowExportModal] = useState<'share' | 'save' | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const statementActionsAnim = useRef(new Animated.Value(-120)).current;
@@ -212,6 +241,11 @@ export default function CustomerStatementScreen({
     showToast(type === 'pdf' ? 'فایل PDF آماده شد.' : 'تصویر خروجی آماده شد.');
   };
 
+  const closeDateModal = () => {
+    setDatePickerTarget(null);
+    setShowDateModal(false);
+  };
+
   return (
     <View style={styles.container}>
       <Header title={customer?.name} subtitle="صورت حساب" onBack={onBack} iconName="arrow-back" />
@@ -222,8 +256,8 @@ export default function CustomerStatementScreen({
           <TouchableOpacity
             style={[styles.tabBtn, (startDate || endDate) && styles.tabBtnActive]}
             onPress={() => {
-              setTempStartDate(startDate || getCurrentPersianDate());
-              setTempEndDate(endDate || getCurrentPersianDate());
+              setTempStartDate(startDate);
+              setTempEndDate(endDate);
               setShowDateModal(true);
             }}
           >
@@ -338,32 +372,35 @@ export default function CustomerStatementScreen({
 
                 {/* Expanded Invoice Items */}
                 {item.kind === 'invoice' && expandedItems[item.id] && item.items?.length > 0 && (
-                  <View style={styles.expandedItemsBox}>
+                  <View style={[styles.expandedItemsBox, { direction: 'rtl' }]}>
                     <View style={styles.expandedHeader}>
-                      <CustomText style={[styles.expTh, { flex: 2 }]}>نام کالا</CustomText>
-                      <CustomText style={[styles.expTh, { flex: 1, textAlign: 'center' }]}>تعداد</CustomText>
-                      <CustomText style={[styles.expTh, { flex: 1.2, textAlign: 'left' }]}>فی</CustomText>
-                      <CustomText style={[styles.expTh, { flex: 1.3, textAlign: 'left' }]}>جمع</CustomText>
+                      <CustomText style={[styles.expTh, { width: '36%', textAlign: 'right' }]}>نام کالا</CustomText>
+                      <CustomText style={[styles.expTh, { width: '16%', textAlign: 'center' }]}>تعداد</CustomText>
+                      <CustomText style={[styles.expTh, { width: '22%', textAlign: 'center' }]}>فی</CustomText>
+                      <CustomText style={[styles.expTh, { width: '26%', textAlign: 'center' }]}>جمع</CustomText>
                     </View>
 
-                    {item.items.map((it: any, idx: number) => (
-                      <View key={idx} style={styles.expandedRow}>
-                        <CustomText style={[styles.expTd, { flex: 2 }]}>
-                          {toPersianDigits(it.desc || it)}
-                        </CustomText>
-                        <CustomText style={[styles.expTd, { flex: 1, textAlign: 'center' }]}>
-                          {toPersianDigits(it.quantity || '1')}
-                        </CustomText>
-                        <CustomText style={[styles.expTd, { flex: 1.2, textAlign: 'left' }]}>
-                          {toPersianDigits(formatNumber(it.unitPrice || 0))}
-                        </CustomText>
-                        <CustomText style={[styles.expTd, { flex: 1.3, textAlign: 'left' }]}>
-                          {toPersianDigits(
-                            formatNumber(Number(it.quantity || 1) * Number(it.unitPrice || 0))
-                          )}
-                        </CustomText>
-                      </View>
-                    ))}
+                    {item.items.map((it: any, idx: number) => {
+                      const qty = getItemQuantity(it);
+                      const price = getItemUnitPrice(it);
+                      const total = getItemTotal(it);
+                      return (
+                        <View key={idx} style={styles.expandedRow}>
+                          <CustomText style={[styles.expTd, { width: '36%', textAlign: 'right' }]}>
+                            {toPersianDigits(it?.desc ?? it?.name ?? '')}
+                          </CustomText>
+                          <CustomText style={[styles.expTd, { width: '16%', textAlign: 'center' }]}>
+                            {toPersianDigits(qty)}
+                          </CustomText>
+                          <CustomText style={[styles.expTd, { width: '22%', textAlign: 'center' }]}>
+                            {formatCellNumber(price)}
+                          </CustomText>
+                          <CustomText style={[styles.expTd, { width: '26%', textAlign: 'center' }]}>
+                            {formatCellNumber(total)}
+                          </CustomText>
+                        </View>
+                      );
+                    })}
                   </View>
                 )}
               </React.Fragment>
@@ -430,27 +467,50 @@ export default function CustomerStatementScreen({
         </TouchableOpacity>
       </Modal>
 
-      {/* Date Filter Modal */}
-      <Modal visible={showDateModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+      {/* Date Filter Overlay (View-based so JalaliDatePicker Modal can stack above it) */}
+      {showDateModal && (
+        <View style={styles.dateFilterOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeDateModal} />
           <LinearGradient colors={['#0d2b43', '#0f4c75']} style={styles.dateModalBox}>
             <CustomText style={styles.modalTitle}>فیلتر تاریخ</CustomText>
 
             <CustomText style={styles.inputLabel}>از تاریخ:</CustomText>
-            <CustomTextInput
-              style={styles.modalInput}
-              placeholder="مثال: ۱۴۰۳/۰۱/۰۱"
-              value={tempStartDate}
-              onChangeText={setTempStartDate}
-            />
+            <View style={styles.dateWrap}>
+              <CustomTextInput
+                style={[styles.modalInput, styles.dateInput]}
+                placeholder={getCurrentPersianDate()}
+                placeholderTextColor="#94a3b8"
+                value={tempStartDate}
+                onChangeText={setTempStartDate}
+              />
+              <TouchableOpacity
+                style={styles.calendarButton}
+                onPress={() => setDatePickerTarget('start')}
+                activeOpacity={0.8}
+                accessibilityLabel="انتخاب تاریخ شروع"
+              >
+                <Ionicons name="calendar-outline" size={20} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
 
             <CustomText style={styles.inputLabel}>تا تاریخ:</CustomText>
-            <CustomTextInput
-              style={styles.modalInput}
-              placeholder="مثال: ۱۴۰۳/۱۲/۲۹"
-              value={tempEndDate}
-              onChangeText={setTempEndDate}
-            />
+            <View style={styles.dateWrap}>
+              <CustomTextInput
+                style={[styles.modalInput, styles.dateInput]}
+                placeholder={getCurrentPersianDate()}
+                placeholderTextColor="#94a3b8"
+                value={tempEndDate}
+                onChangeText={setTempEndDate}
+              />
+              <TouchableOpacity
+                style={styles.calendarButton}
+                onPress={() => setDatePickerTarget('end')}
+                activeOpacity={0.8}
+                accessibilityLabel="انتخاب تاریخ پایان"
+              >
+                <Ionicons name="calendar-outline" size={20} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -458,26 +518,41 @@ export default function CustomerStatementScreen({
                 onPress={() => {
                   setStartDate(tempStartDate);
                   setEndDate(tempEndDate);
-                  setShowDateModal(false);
+                  closeDateModal();
                 }}
               >
                 <CustomText style={styles.primaryBtnText}>تایید</CustomText>
               </TouchableOpacity>
-              {(tempStartDate || tempEndDate) && (
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.secondaryBtn]}
-                  onPress={() => {
-                    setTempStartDate('');
-                    setTempEndDate('');
-                  }}
-                >
-                  <CustomText style={styles.secondaryBtnText}>حذف فیلتر</CustomText>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.secondaryBtn]}
+                onPress={() => {
+                  setTempStartDate('');
+                  setTempEndDate('');
+                  setStartDate('');
+                  setEndDate('');
+                  closeDateModal();
+                }}
+              >
+                <CustomText style={styles.secondaryBtnText}>حذف فیلتر</CustomText>
+              </TouchableOpacity>
             </View>
           </LinearGradient>
         </View>
-      </Modal>
+      )}
+
+      <JalaliDatePicker
+        visible={datePickerTarget !== null}
+        initialDate={
+          datePickerTarget === 'start'
+            ? (tempStartDate || getCurrentPersianDate())
+            : (tempEndDate || getCurrentPersianDate())
+        }
+        onSelectDate={(date) => {
+          if (datePickerTarget === 'start') setTempStartDate(date);
+          else setTempEndDate(date);
+        }}
+        onClose={() => setDatePickerTarget(null)}
+      />
 
       {/* Toast Notification */}
       {toastMsg && (
@@ -697,6 +772,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  dateFilterOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    elevation: 24,
+  },
   exportMenu: {
     backgroundColor: '#0f4c75',
     borderRadius: 12,
@@ -725,8 +812,28 @@ const styles = StyleSheet.create({
     height: 42,
     color: '#ffffff',
     fontSize: 13,
-    marginBottom: 10,
     textAlign: 'right',
+  },
+  dateWrap: {
+    position: 'relative',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  dateInput: {
+    paddingLeft: 52,
+  },
+  calendarButton: {
+    position: 'absolute',
+    left: 6,
+    zIndex: 2,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 15 },
   modalBtn: { flex: 1, height: 40, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },

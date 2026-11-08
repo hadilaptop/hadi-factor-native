@@ -52,7 +52,7 @@ interface InvoicePreviewProps {
   grandTotal: number;
   amountInWords: string;
   noteText: string;
-  captureTargetRef?: React.RefObject<View | null>;
+  captureTargetRef?: React.RefObject<React.ComponentRef<typeof View> | null>;
   isCapturing?: boolean;
 }
 
@@ -222,7 +222,7 @@ export default function InvoicePreview({
                 <View style={[styles.buyerLabelBox, { backgroundColor: themeColors.light, borderColor: themeColors.border }]}>
                   <Text style={[styles.buyerLabel, { color: themeColors.primary }]}>خریدار</Text>
                 </View>
-                <View style={[styles.previewBuyerBox, { backgroundColor: themeColors.light, borderColor: themeColors.border }]}>
+                <View style={[styles.previewBuyerBox, { backgroundColor: themeColors.light, borderColor: themeColors.border, alignItems: (buyerAddress || buyerEconomicCode) ? "center" : "flex-start" }]}>
                   <View style={styles.buyerMainInfo}>
                     <Text style={styles.previewBuyerName} numberOfLines={2}>{buyerName || "وارد نشده"}</Text>
                     {buyerAddress ? (
@@ -290,7 +290,7 @@ export default function InvoicePreview({
                 <Text style={styles.amountInWordsText}>{amountInWords}</Text>
               </View>
 
-              <View style={[styles.previewNoteBox,{backgroundColor: themeColors.light,borderColor: themeColors.secondary,},]}>
+              <View style={[styles.previewNoteBox,{backgroundColor: themeColors.light,borderColor: themeColors.secondary}]}>
                 <Text style={styles.previewNoteLabel}>توضیحات:</Text>
                 <Text style={styles.previewNoteText}>{noteText}</Text>
               </View>
@@ -476,12 +476,12 @@ const styles = StyleSheet.create({
   },
   buyerMainInfo: {
     flex: 1.2,
-    alignItems: "flex-start",
+    alignItems: "flex-end",
     gap: 4,
   },
   buyerExtraInfo: {
     flex: 1,
-    alignItems: "flex-start",
+    alignItems: "flex-end",
     justifyContent: "flex-end",
     gap: 8,
   },
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     
     color: "#1b262c",
-    textAlign: "right",
+    textAlign: "left",
   },
   previewNoteBox: {
     marginTop: 10,

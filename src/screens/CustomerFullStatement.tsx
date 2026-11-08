@@ -14,7 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWindowDimensions } from "react-native";
-import { View, TouchableOpacity, Modal, StyleSheet } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Path, Polyline, Circle } from "react-native-svg";
@@ -22,14 +22,42 @@ import Header from "../components/Header";
 import ExportAlertModal from "../components/ExportAlertModal";
 import CustomText from "../components/CustomText";
 import CustomTextInput from "../components/CustomTextInput";
+import JalaliDatePicker from "../components/JalaliDatePicker";
 import {
   toPersianDigits,
   formatNumber,
+  parseNumber,
   getCurrentPersianDate,
 } from "../utils/invoiceHelpers";
 import { Customer } from "../storage/customerStorage";
 
 const STATEMENT_CARD_WIDTH = 950;
+
+// محاسبه امن جمع هر ردیف فاکتور (پشتیبانی از ارقام فارسی و کلیدهای مختلف)
+const getItemQuantity = (it: any): number => {
+  const raw = it?.quantity ?? it?.qty ?? 1;
+  const n = parseNumber(raw);
+  return isFinite(n) && n > 0 ? n : 1;
+};
+
+const getItemUnitPrice = (it: any): number => {
+  const raw = it?.unitPrice ?? it?.price ?? it?.fee ?? 0;
+  const n = parseNumber(raw);
+  return isFinite(n) ? n : 0;
+};
+
+const getItemTotal = (it: any): number => {
+  const explicitTotal = parseNumber(it?.total ?? it?.sum ?? 0);
+  if (isFinite(explicitTotal) && explicitTotal > 0) return explicitTotal;
+  const computed = getItemQuantity(it) * getItemUnitPrice(it);
+  return isFinite(computed) ? computed : 0;
+};
+
+const formatCellNumber = (n: number): string => {
+  if (!isFinite(n) || n === 0) return "۰";
+  const s = formatNumber(n);
+  return s || "۰";
+};
 
 type CustomerFullStatementProps = {
   customer: Customer;
@@ -55,12 +83,13 @@ export default function CustomerFullStatement({
     [key: string]: boolean;
   }>({});
   const [showDateModal, setShowDateModal] = useState(false);
+  const [datePickerTarget, setDatePickerTarget] = useState<"start" | "end" | null>(null);
   const [showExportModal, setShowExportModal] = useState<
     "share" | "save" | null
   >(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [exportAlert, setExportAlert] = useState({ visible: false, title: "", message: "", success: false });
-  const statementCaptureRef = useRef<View>(null);
+  const statementCaptureRef = useRef<React.ComponentRef<typeof Animated.View>>(null);
 
   const { width } = useWindowDimensions();
   const initialScale = Math.min(
@@ -146,14 +175,14 @@ export default function CustomerFullStatement({
     });
 
   const gestures = Gesture.Simultaneous(pinch, pan, doubleTap);
-const animatedCardStyle = useAnimatedStyle(() => ({
-  transformOrigin: "top center",
-  transform: [
-    { translateX: translateX.value },
-    { translateY: translateY.value },
-    { scale: scale.value },
-  ],
-}));
+  const animatedCardStyle = useAnimatedStyle(() => ({
+    transformOrigin: "top center",
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -301,6 +330,11 @@ const animatedCardStyle = useAnimatedStyle(() => ({
     });
   };
 
+  const closeDateModal = () => {
+    setDatePickerTarget(null);
+    setShowDateModal(false);
+  };
+
   return (
     <View style={styles.container}>
       <View style={{ zIndex: 10, elevation: 10 }}>
@@ -350,8 +384,8 @@ const animatedCardStyle = useAnimatedStyle(() => ({
               (startDate || endDate) && styles.tabBtnActive,
             ]}
             onPress={() => {
-              setTempStartDate(startDate || getCurrentPersianDate());
-              setTempEndDate(endDate || getCurrentPersianDate());
+              setTempStartDate(startDate);
+              setTempEndDate(endDate);
               setShowDateModal(true);
             }}
           >
@@ -440,7 +474,7 @@ const animatedCardStyle = useAnimatedStyle(() => ({
                         <CustomText style={[styles.td, { flex: 1.2 }]}>
                           -
                         </CustomText>
-                        <CustomText style={[styles.td, { flex: 2.2 }]}>
+                        <CustomText style={[styles.td, { flex: 2.2, textAlign: "right", paddingRight: 20 }]}>
                           مانده از قبل
                         </CustomText>
                         <CustomText
@@ -489,7 +523,7 @@ const animatedCardStyle = useAnimatedStyle(() => ({
                           >
                             {toPersianDigits(item.date)}
                           </CustomText>
-                          <CustomText style={[styles.td, { flex: 2.2 ,textAlign: "right"}]}>
+                          <CustomText style={[styles.td, { flex: 2.2, textAlign: "right", paddingRight: 20 }]}>
                             {item.kind === "invoice" ? (
                               <CustomText style={styles.invoiceLink}>
                                 فاکتور فروش {toPersianDigits(item.number)}
@@ -548,7 +582,12 @@ const animatedCardStyle = useAnimatedStyle(() => ({
                           item.items?.length > 0 && (
                             <View style={styles.expandedItemsBox}>
                               <View style={styles.expandedHeader}>
-                                <CustomText style={[styles.expTh, { flex: 2 }]}>
+                                <CustomText
+                                  style={[
+                                    styles.expTh,
+                                    { flex: 2, textAlign: "right", paddingRight: 10 },
+                                  ]}
+                                >
                                   نام کالا
                                 </CustomText>
                                 <CustomText
@@ -577,46 +616,47 @@ const animatedCardStyle = useAnimatedStyle(() => ({
                                 </CustomText>
                               </View>
 
-                              {item.items.map((it: any, idx: number) => (
-                                <View key={idx} style={styles.expandedRow}>
-                                  <CustomText
-                                    style={[styles.expTd, { flex: 2 }]}
-                                  >
-                                    {toPersianDigits(it.desc || it)}
-                                  </CustomText>
-                                  <CustomText
-                                    style={[
-                                      styles.expTd,
-                                      { flex: 1, textAlign: "center" },
-                                    ]}
-                                  >
-                                    {toPersianDigits(it.quantity || "1")}
-                                  </CustomText>
-                                  <CustomText
-                                    style={[
-                                      styles.expTd,
-                                      { flex: 1.2, textAlign: "left" },
-                                    ]}
-                                  >
-                                    {toPersianDigits(
-                                      formatNumber(it.unitPrice || 0),
-                                    )}
-                                  </CustomText>
-                                  <CustomText
-                                    style={[
-                                      styles.expTd,
-                                      { flex: 1.3, textAlign: "left" },
-                                    ]}
-                                  >
-                                    {toPersianDigits(
-                                      formatNumber(
-                                        Number(it.quantity || 1) *
-                                          Number(it.unitPrice || 0),
-                                      ),
-                                    )}
-                                  </CustomText>
-                                </View>
-                              ))}
+                              {item.items.map((it: any, idx: number) => {
+                                const qty = getItemQuantity(it);
+                                const price = getItemUnitPrice(it);
+                                const total = getItemTotal(it);
+                                return (
+                                  <View key={idx} style={styles.expandedRow}>
+                                    <CustomText
+                                      style={[
+                                        styles.expTd,
+                                        { flex: 2, textAlign: "right", paddingRight: 10 },
+                                      ]}
+                                    >
+                                      {toPersianDigits(it?.desc ?? it?.name ?? "")}
+                                    </CustomText>
+                                    <CustomText
+                                      style={[
+                                        styles.expTd,
+                                        { flex: 1, textAlign: "center" },
+                                      ]}
+                                    >
+                                      {toPersianDigits(qty)}
+                                    </CustomText>
+                                    <CustomText
+                                      style={[
+                                        styles.expTd,
+                                        { flex: 1.2, textAlign: "left" },
+                                      ]}
+                                    >
+                                      {formatCellNumber(price)}
+                                    </CustomText>
+                                    <CustomText
+                                      style={[
+                                        styles.expTd,
+                                        { flex: 1.3, textAlign: "left" },
+                                      ]}
+                                    >
+                                      {formatCellNumber(total)}
+                                    </CustomText>
+                                  </View>
+                                );
+                              })}
                             </View>
                           )}
                       </React.Fragment>
@@ -757,30 +797,53 @@ const animatedCardStyle = useAnimatedStyle(() => ({
         />
       )}
 
-      {/* Date Filter Modal */}
-      <Modal visible={showDateModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+      {/* Date Filter Overlay (View-based so JalaliDatePicker Modal can stack above it) */}
+      {showDateModal && (
+        <View style={styles.dateFilterOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeDateModal} />
           <LinearGradient
-            colors={["#0d2b43", "#0f4c75"]}
+            colors={["#224765", "#1f6593"]}
             style={styles.dateModalBox}
           >
             <CustomText style={styles.modalTitle}>فیلتر تاریخ</CustomText>
 
             <CustomText style={styles.inputLabel}>از تاریخ:</CustomText>
-            <CustomTextInput
-              style={styles.modalInput}
-              placeholder="مثال: ۱۴۰۳/۰۱/۰۱"
-              value={tempStartDate}
-              onChangeText={setTempStartDate}
-            />
+            <View style={styles.dateWrap}>
+              <CustomTextInput
+                style={[styles.modalInput, styles.dateInput]}
+                placeholder={getCurrentPersianDate()}
+                placeholderTextColor="#94a3b8"
+                value={tempStartDate}
+                onChangeText={setTempStartDate}
+              />
+              <TouchableOpacity
+                style={styles.calendarButton}
+                onPress={() => setDatePickerTarget("start")}
+                activeOpacity={0.8}
+                accessibilityLabel="انتخاب تاریخ شروع"
+              >
+                <Ionicons name="calendar-outline" size={20} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
 
             <CustomText style={styles.inputLabel}>تا تاریخ:</CustomText>
-            <CustomTextInput
-              style={styles.modalInput}
-              placeholder="مثال: ۱۴۰۳/۱۲/۲۹"
-              value={tempEndDate}
-              onChangeText={setTempEndDate}
-            />
+            <View style={styles.dateWrap}>
+              <CustomTextInput
+                style={[styles.modalInput, styles.dateInput]}
+                placeholder={getCurrentPersianDate()}
+                placeholderTextColor="#94a3b8"
+                value={tempEndDate}
+                onChangeText={setTempEndDate}
+              />
+              <TouchableOpacity
+                style={styles.calendarButton}
+                onPress={() => setDatePickerTarget("end")}
+                activeOpacity={0.8}
+                accessibilityLabel="انتخاب تاریخ پایان"
+              >
+                <Ionicons name="calendar-outline" size={20} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -788,28 +851,43 @@ const animatedCardStyle = useAnimatedStyle(() => ({
                 onPress={() => {
                   setStartDate(tempStartDate);
                   setEndDate(tempEndDate);
-                  setShowDateModal(false);
+                  closeDateModal();
                 }}
               >
                 <CustomText style={styles.primaryBtnText}>تایید</CustomText>
               </TouchableOpacity>
-              {(tempStartDate || tempEndDate) && (
-                <TouchableOpacity
-                  style={[styles.modalBtn, styles.secondaryBtn]}
-                  onPress={() => {
-                    setTempStartDate("");
-                    setTempEndDate("");
-                  }}
-                >
-                  <CustomText style={styles.secondaryBtnText}>
-                    حذف فیلتر
-                  </CustomText>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.secondaryBtn]}
+                onPress={() => {
+                  setTempStartDate("");
+                  setTempEndDate("");
+                  setStartDate("");
+                  setEndDate("");
+                  closeDateModal();
+                }}
+              >
+                <CustomText style={styles.secondaryBtnText}>
+                  حذف فیلتر
+                </CustomText>
+              </TouchableOpacity>
             </View>
           </LinearGradient>
         </View>
-      </Modal>
+      )}
+
+      <JalaliDatePicker
+        visible={datePickerTarget !== null}
+        initialDate={
+          datePickerTarget === "start"
+            ? (tempStartDate || getCurrentPersianDate())
+            : (tempEndDate || getCurrentPersianDate())
+        }
+        onSelectDate={(date) => {
+          if (datePickerTarget === "start") setTempStartDate(date);
+          else setTempEndDate(date);
+        }}
+        onClose={() => setDatePickerTarget(null)}
+      />
 
       {/* Toast Notification */}
       {toastMsg && (
@@ -852,11 +930,13 @@ const styles = StyleSheet.create({
   tabBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 30,
     backgroundColor: "rgba(255, 255, 255, 0.15)",
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ffffff",
   },
   tabBtnActive: {
     backgroundColor: "#0f4c75",
@@ -866,9 +946,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   sortBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#ffffff",
     borderStyle: "solid",
@@ -877,9 +957,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   expandBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#ffffff",
     borderStyle: "solid",
@@ -934,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: "row-reverse",
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#cbe5ff",
     borderBottomWidth: 1.5,
     borderColor: "#cbd5e1",
     paddingVertical: 8,
@@ -947,7 +1027,7 @@ const styles = StyleSheet.create({
   tableRow: {
     flexDirection: "row-reverse",
     borderBottomWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#414448",
     paddingVertical: 8,
     paddingHorizontal: 6,
     alignItems: "center",
@@ -974,17 +1054,19 @@ const styles = StyleSheet.create({
   textDebt: { color: "#d32f2f" },
   textCredit: { color: "#2e7d32" },
   expandedItemsBox: {
-    backgroundColor: "#f8fafc",
-    paddingHorizontal: 15,
+    backgroundColor: "#eeeeee",
+    // marginHorizontal:5,
+    paddingHorizontal: 85,
     paddingVertical: 6,
+    // borderRadius: 10,
     borderBottomWidth: 1,
-    borderColor: "#e2e8f0",
+    // borderColor: "#2b79d1",
   },
   expandedHeader: {
     flexDirection: "row-reverse",
     borderBottomWidth: 1,
-    borderColor: "#cbd5e1",
-    paddingBottom: 4,
+    borderColor: "#241eda",
+    paddingBottom: 10,
   },
   expTh: { fontSize: 16, color: "#153868" },
   expandedRow: {
@@ -1035,6 +1117,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  dateFilterOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+    elevation: 24,
+  },
   exportMenu: {
     position: "absolute",
     bottom: 70,
@@ -1057,15 +1151,25 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: "#2e557c",
+    borderColor: "rgba(255, 255, 255, 0.53)",
+    direction: "rtl",
   },
   modalTitle: {
     color: "#ffffff",
     fontSize: 16,
     marginBottom: 15,
     textAlign: "center",
+    alignSelf: "center",
+    writingDirection: "rtl",
   },
-  inputLabel: { color: "#cbd5e1", fontSize: 12, marginBottom: 4 },
+  inputLabel: {
+    paddingHorizontal: 10,
+    color: "#cbd5e1",
+    fontSize: 12,
+    marginBottom: 4,
+    alignSelf: "stretch",
+    writingDirection: "rtl",
+  },
   modalInput: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 8,
@@ -1073,10 +1177,38 @@ const styles = StyleSheet.create({
     height: 42,
     color: "#ffffff",
     fontSize: 13,
-    marginBottom: 10,
     textAlign: "right",
+    writingDirection: "rtl",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
   },
-  modalActions: { flexDirection: "row", gap: 10, marginTop: 15 },
+  dateWrap: {
+    position: "relative",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  dateInput: {
+    paddingLeft: 52,
+    paddingRight: 10,
+  },
+  calendarButton: {
+    position: "absolute",
+    left: 6,
+    zIndex: 2,
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  modalActions: {
+    flexDirection: "row-reverse",
+    gap: 10,
+    marginTop: 15,
+  },
   modalBtn: {
     flex: 1,
     height: 40,
@@ -1085,13 +1217,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryBtn: { backgroundColor: "#10b981" },
-  primaryBtnText: { color: "#ffffff", fontSize: 13 },
+  primaryBtnText: { color: "#ffffff", fontSize: 13, writingDirection: "rtl" },
   secondaryBtn: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgb(216, 39, 39)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.2)",
   },
-  secondaryBtnText: { color: "#ffffff", fontSize: 13 },
+  secondaryBtnText: { color: "#ffffff", fontSize: 13, writingDirection: "rtl" },
   toast: {
     position: "absolute",
     bottom: 80,
