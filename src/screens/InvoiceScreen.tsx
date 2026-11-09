@@ -114,6 +114,9 @@ export default function InvoiceScreen({
     initialMode === "preview" ? "preview" : "form",
   );
   const [isSaving, setIsSaving] = useState(false);
+  const invoiceIdRef = useRef(invoiceToEdit?.id ?? `invoice-${Date.now()}`);
+  const manualCustomerIdRef = useRef(invoiceToEdit?.customerId ?? `manual-${Date.now()}`);
+  const invoiceWasSavedRef = useRef(Boolean(invoiceToEdit?.id));
   const [isCapturing, setIsCapturing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState<"share" | "save" | null>(
     null,
@@ -415,8 +418,8 @@ export default function InvoiceScreen({
     setIsSaving(true);
     try {
       const invoice = {
-        id: invoiceToEdit?.id ?? `invoice-${Date.now()}`,
-        customerId: selectedCustomerId ?? `manual-${Date.now()}`,
+        id: invoiceIdRef.current,
+        customerId: selectedCustomerId ?? manualCustomerIdRef.current,
         type: invoiceType,
         number: invoiceNumber,
         date: invoiceDate,
@@ -435,10 +438,17 @@ export default function InvoiceScreen({
         sellerLogo,
       };
 
+      const isUpdate = invoiceWasSavedRef.current;
       const success = await saveInvoice(invoice);
       if (success) {
+        invoiceWasSavedRef.current = true;
         onInvoiceSaved?.(invoice);
-        handleClose();
+        setExportAlert({
+          visible: true,
+          title: isUpdate ? "به‌روزرسانی موفق" : "ذخیره موفق",
+          message: isUpdate ? "فاکتور به‌روزرسانی شد" : "در حساب مشتری ذخیره شد",
+          success: true,
+        });
       }
     } catch (err) {
       console.error("Failed to save invoice:", err);

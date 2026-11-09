@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Image,
   Modal,
@@ -18,6 +17,7 @@ import CustomText from "../components/CustomText";
 import CustomTextInput from "../components/CustomTextInput";
 import JalaliDatePicker from "../components/JalaliDatePicker";
 import AnimatedScrollWrapper from "../components/AnimatedScrollWrapper";
+import ExportAlertModal from "../components/ExportAlertModal";
 import { Customer } from "../storage/customerStorage";
 import { Payment } from "../storage/paymentStorage";
 import * as jalaali from "jalaali-js";
@@ -87,6 +87,7 @@ export default function CustomerPayment({
     paymentToEdit?.attachment || null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [alertModal, setAlertModal] = useState({ show: false, title: "", message: "" });
   const [datePickerTarget, setDatePickerTarget] = useState<"payment" | "check" | null>(null);
 
   useEffect(() => {
@@ -114,29 +115,25 @@ export default function CustomerPayment({
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,
-        quality: 0.7,
+        quality: 0.35,
         base64: true,
       });
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
-      if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
-        Alert.alert("خطا در تصویر", "حجم تصویر نباید بیشتر از ۵ مگابایت باشد.");
-        return;
-      }
       if (asset.base64) setPaymentAttachment(`data:image/jpeg;base64,${asset.base64}`);
     } catch {
-      Alert.alert("خطا", "انتخاب تصویر انجام نشد.");
+      setAlertModal({ show: true, title: "خطا", message: "انتخاب تصویر انجام نشد." });
     }
   };
 
   const handleSave = async () => {
     if (!selectedCustomer) {
-      Alert.alert("خطای مشتری", "لطفاً ابتدا مشتری مورد نظر را انتخاب کنید.");
+      setAlertModal({ show: true, title: "خطای مشتری", message: "لطفاً ابتدا مشتری مورد نظر را انتخاب کنید." });
       return;
     }
     const numericAmount = parseNumber(paymentAmount);
     if (!numericAmount || numericAmount <= 0) {
-      Alert.alert("مبلغ نامعتبر", "لطفاً مبلغ دریافتی معتبر وارد کنید.");
+      setAlertModal({ show: true, title: "مبلغ نامعتبر", message: "لطفاً مبلغ دریافتی معتبر وارد کنید." });
       return;
     }
 
@@ -159,7 +156,7 @@ export default function CustomerPayment({
       if (saved === false) throw new Error("save failed");
       onBack();
     } catch {
-      Alert.alert("خطا", "خطا در ثبت تراکنش دریافتی. لطفاً دوباره تلاش کنید.");
+      setAlertModal({ show: true, title: "خطا", message: "خطا در ثبت تراکنش دریافتی. لطفاً دوباره تلاش کنید." });
     } finally {
       setIsSubmitting(false);
     }
@@ -440,6 +437,12 @@ export default function CustomerPayment({
           else setPaymentDate(date);
         }}
         onClose={() => setDatePickerTarget(null)}
+      />
+      <ExportAlertModal
+        visible={alertModal.show}
+        title={alertModal.title}
+        message={alertModal.message}
+        onClose={() => setAlertModal({ show: false, title: "", message: "" })}
       />
     </View>
   );

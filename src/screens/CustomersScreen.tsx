@@ -19,6 +19,8 @@ import { toPersianDigits } from '../utils/numberUtils';
 import CustomText from '../components/CustomText';
 import CustomTextInput from '../components/CustomTextInput';
 import { Customer } from '../storage/customerStorage';
+import ExportAlertModal from '../components/ExportAlertModal';
+import ActionDropdown from '../components/ActionDropdown';
 
 type CustomersScreenProps = {
   onNavigate?: (screen: string) => void;
@@ -204,72 +206,41 @@ export default function CustomersScreen({
         )}
       </AnimatedScrollWrapper>
 
-      <Modal
+      <ActionDropdown
         visible={activeDropdown !== null}
-        transparent={true}
-        statusBarTranslucent={true}
-        animationType="none"
-        onRequestClose={() => setActiveDropdown(null)}
+        position={dropdownPosition}
+        onClose={() => setActiveDropdown(null)}
+        menuStyle={styles.dropdownMenu}
       >
-        <View style={styles.dropdownModalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setActiveDropdown(null)} />
-          {activeDropdown !== null && (() => {
-            const customer = customers.find((item) => String(item.id) === String(activeDropdown));
-            if (!customer) return null;
-            return (
-              <View style={[styles.dropdownMenu, dropdownPosition]}>
-                <TouchableOpacity style={styles.dropdownItem} onPress={() => { setActiveDropdown(null); onEditCustomer(customer); }}>
-                  <Ionicons name="create-outline" size={20} color="#ffffff" />
-                  <CustomText style={styles.dropdownText}>ویرایش مشخصات</CustomText>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => { setActiveDropdown(null); setDeleteModalData(customer); }}>
-                  <Ionicons name="trash-outline" size={20} color="#ff5c5c" />
-                  <CustomText style={[styles.dropdownText, { color: '#ff5c5c' }]}>حذف مشتری</CustomText>
-                </TouchableOpacity>
-              </View>
-            );
-          })()}
-        </View>
-      </Modal>
+        {activeDropdown !== null && (() => {
+          const customer = customers.find((item) => String(item.id) === String(activeDropdown));
+          if (!customer) return null;
+          return (
+            <>
+              <TouchableOpacity style={styles.dropdownItem} onPress={() => { setActiveDropdown(null); onEditCustomer(customer); }}>
+                <Ionicons name="create-outline" size={20} color="#ffffff" />
+                <CustomText style={styles.dropdownText}>ویرایش مشخصات</CustomText>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.dropdownItem, { borderBottomWidth: 0 }]} onPress={() => { setActiveDropdown(null); setDeleteModalData(customer); }}>
+                <Ionicons name="trash-outline" size={20} color="#ff5c5c" />
+                <CustomText style={[styles.dropdownText, { color: '#ff5c5c' }]}>حذف مشتری</CustomText>
+              </TouchableOpacity>
+            </>
+          );
+        })()}
+      </ActionDropdown>
 
-      <Modal
+      <ExportAlertModal
         visible={!!deleteModalData}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.modalOverlay}>
-          <LinearGradient
-            colors={['#0d2b43', '#1f5579']}
-            style={styles.modalBox}
-          >
-            <View style={styles.modalIconBg}>
-              <Ionicons name="trash-outline" size={32} color="#ff5c5c" />
-            </View>
-            <CustomText style={styles.modalTitle}>
-              آیا از حذف مطمئن هستید؟
-            </CustomText>
-            <CustomText style={styles.modalText}>
-              اطلاعات این مشتری حذف خواهد شد و این عملیات قابل بازگشت نیست.
-            </CustomText>
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => setDeleteModalData(null)}
-              >
-                <CustomText style={styles.cancelBtnText}>انصراف</CustomText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.dangerBtn]}
-                onPress={confirmDelete}
-              >
-                <CustomText style={styles.dangerBtnText}>
-                  بله حذف شود
-                </CustomText>
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-        </View>
-      </Modal>
+        title="آیا از حذف مطمئن هستید؟"
+        message="اطلاعات این مشتری حذف خواهد شد و این عملیات قابل بازگشت نیست."
+        titleFontSize={14}
+        confirm
+        confirmText="بله حذف شود"
+        cancelText="انصراف"
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteModalData(null)}
+      />
     </View>
   );
 }
@@ -424,70 +395,5 @@ const styles = StyleSheet.create({
     color: '#1f5579',
     fontSize: 16,
     marginTop: 40,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalBox: {
-    width: '80%',
-    padding: 25,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#2e557c',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 15,
-  },
-  modalIconBg: {
-    width: 60,
-    height: 60,
-    backgroundColor: 'rgba(255, 92, 92, 0.15)',
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  modalTitle: {
-    fontSize: 18,
-    color: '#ffffff',
-    marginBottom: 10,
-  },
-  modalText: {
-    fontSize: 14,
-    color: '#aab7c8',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 25,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 15,
-    width: '100%',
-  },
-  modalBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelBtn: {
-    borderWidth: 2,
-    borderColor: '#2e557c',
-  },
-  cancelBtnText: {
-    color: '#dee1e4',
-  },
-  dangerBtn: {
-    backgroundColor: '#ff5c5c',
-  },
-  dangerBtnText: {
-    color: '#ffffff',
   },
 });

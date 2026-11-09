@@ -6,13 +6,12 @@ import {
   Platform,
   Image,
   KeyboardAvoidingView,
-  Alert,
-  Modal,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import Header from "../components/Header";
+import ExportAlertModal from "../components/ExportAlertModal";
 import AnimatedScrollWrapper, {
   AnimatedScrollWrapperRef,
 } from "../components/AnimatedScrollWrapper";
@@ -21,7 +20,6 @@ import AnimatedScrollWrapper, {
 import CustomText from "../components/CustomText";
 import CustomTextInput from "../components/CustomTextInput";
 import { toPersianDigits } from "../utils/numberUtils";
-import { Ionicons } from "@expo/vector-icons";
 
 interface SettingsScreenProps {
   onNavigate: (screen: string) => void;
@@ -40,12 +38,19 @@ export default function SettingsScreen({
   const [companyPhone, setCompanyPhone] = useState("");
   const [economicCode, setEconomicCode] = useState("");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [alertModal, setAlertModal] = useState({
-    visible: false,
+  const [exportAlertModal, setExportAlertModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    success?: boolean;
+    error?: boolean;
+    confirm?: boolean;
+    confirmText?: string;
+    cancelText?: string;
+  }>({
+    show: false,
     title: "",
     message: "",
-    type: "success",
-    confirmReset: false,
   });
 
   useEffect(() => {
@@ -78,7 +83,7 @@ export default function SettingsScreen({
   const handleLogoSelect = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("خطا", "برای انتخاب لوگو به دسترسی گالری نیاز داریم.");
+      setExportAlertModal({ show: true, title: "خطا", message: "برای انتخاب لوگو به دسترسی گالری نیاز داریم." });
       return;
     }
 
@@ -107,29 +112,30 @@ export default function SettingsScreen({
         await AsyncStorage.removeItem("companyLogo");
       }
 
-      setAlertModal({
-        visible: true,
+      setExportAlertModal({
+        show: true,
         title: "موفق",
         message: "تنظیمات با موفقیت ذخیره شد.",
-        type: "success",
-        confirmReset: false,
+        success: true,
       });
     } catch (e) {
-      Alert.alert("خطا", "مشکلی در ذخیره اطلاعات پیش آمد.");
+      setExportAlertModal({ show: true, title: "خطا", message: "مشکلی در ذخیره اطلاعات پیش آمد." });
     }
   };
 
   const handleReset = () => {
-    setAlertModal({
-      visible: true,
+    setExportAlertModal({
+      show: true,
       title: "بازنشانی تنظیمات",
       message: "آیا از پاک کردن تمامی تنظیمات و فرم‌ها مطمئن هستید؟",
-      type: "warning",
-      confirmReset: true,
+      confirm: true,
+      confirmText: "بله، پاک کن",
+      cancelText: "انصراف",
     });
   };
 
   const confirmReset = async () => {
+    setExportAlertModal({ show: false, title: "", message: "" });
     setTheme("blue");
     setCompanyName("");
     setCompanyAddress("");
@@ -146,20 +152,13 @@ export default function SettingsScreen({
         "companyEconomicCode",
         "companyLogo",
       ]);
-      setAlertModal({
-        visible: false,
-        title: "",
-        message: "",
-        type: "success",
-        confirmReset: false,
-      });
+
     } catch {
-      setAlertModal({
-        visible: true,
+      setExportAlertModal({
+        show: true,
         title: "خطا",
         message: "بازنشانی تنظیمات انجام نشد. لطفاً دوباره تلاش کنید.",
-        type: "error",
-        confirmReset: false,
+        error: true,
       });
     }
   };
@@ -310,87 +309,20 @@ export default function SettingsScreen({
           </LinearGradient>
         </AnimatedScrollWrapper>
 
-        <Modal
-          visible={alertModal.visible}
-          transparent
-          animationType="fade"
-          onRequestClose={() =>
-            setAlertModal((current) => ({ ...current, visible: false }))
+        <ExportAlertModal
+          visible={exportAlertModal.show}
+          title={exportAlertModal.title}
+          message={exportAlertModal.message}
+          success={exportAlertModal.success}
+          error={exportAlertModal.error}
+          confirm={exportAlertModal.confirm}
+          confirmText={exportAlertModal.confirmText}
+          cancelText={exportAlertModal.cancelText}
+          onConfirm={confirmReset}
+          onClose={() =>
+            setExportAlertModal({ show: false, title: "", message: "" })
           }
-        >
-          <View style={styles.alertOverlay}>
-            <LinearGradient
-              colors={["#0d2b43", "#0f4c75"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.alertBox}
-            >
-              <View style={styles.alertIconBg}>
-                <Ionicons
-                  name={
-                    alertModal.type === "success"
-                      ? "checkmark-circle-outline"
-                      : alertModal.type === "error"
-                        ? "close-circle-outline"
-                        : "warning-outline"
-                  }
-                  size={32}
-                  color={
-                    alertModal.type === "success"
-                      ? "#10b981"
-                      : alertModal.type === "error"
-                        ? "#f87171"
-                        : "#f59e0b"
-                  }
-                />
-              </View>
-              <CustomText style={styles.alertTitle}>
-                {alertModal.title}
-              </CustomText>
-              <CustomText style={styles.alertMessage}>
-                {alertModal.message}
-              </CustomText>
-              {alertModal.confirmReset ? (
-                <View style={styles.alertActions}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={[styles.alertBtn, styles.alertCancelBtn]}
-                    onPress={() =>
-                      setAlertModal((current) => ({
-                        ...current,
-                        visible: false,
-                      }))
-                    }
-                  >
-                    <CustomText style={styles.alertBtnText}>انصراف</CustomText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={[styles.alertBtn, styles.alertConfirmBtn]}
-                    onPress={confirmReset}
-                  >
-                    <CustomText style={styles.alertBtnText}>
-                      بله، پاک کن
-                    </CustomText>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={styles.alertBtn}
-                  onPress={() => {
-                    setAlertModal((current) => ({
-                      ...current,
-                      visible: false,
-                    }));
-                  }}
-                >
-                  <CustomText style={styles.alertBtnText}>متوجه شدم</CustomText>
-                </TouchableOpacity>
-              )}
-            </LinearGradient>
-          </View>
-        </Modal>
+        />
       </KeyboardAvoidingView>
     </View>
   );
@@ -544,80 +476,5 @@ const styles = StyleSheet.create({
   btnText: {
     color: "#fff",
     fontSize: 14,
-  },
-  alertOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  alertBox: {
-    width: "80%",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#adc7d8",
-    paddingVertical: 20,
-    paddingHorizontal: 15,
-    alignItems: "center",
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  alertIconBg: {
-    backgroundColor: "rgba(245, 158, 11, 0.12)",
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  alertTitle: {
-    fontSize: 19,
-    fontWeight: "900",
-    color: "#ffffff",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  alertMessage: {
-    fontSize: 15,
-    color: "#ffffff",
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  alertActions: {
-    flexDirection: "row-reverse",
-    width: "100%",
-    gap: 10,
-    justifyContent: "center",
-  },
-  alertBtn: {
-    minWidth: "70%",
-    backgroundColor: "#145d8e",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  alertCancelBtn: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: "#64748b",
-  },
-  alertConfirmBtn: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: "#dc2626",
-  },
-  alertBtnText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "bold",
-    textAlign: "center",
   },
 });

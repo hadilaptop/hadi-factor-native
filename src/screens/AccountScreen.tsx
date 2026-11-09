@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import * as ImagePicker from "expo-image-picker"; 
+import * as ImagePicker from "expo-image-picker";
 import {
   View,
   StyleSheet,
@@ -7,19 +7,22 @@ import {
   ScrollView,
   Platform,
   Image,
-  Modal,
-  Animated,
-  Dimensions
+  Dimensions,
 } from "react-native";
 import {
-  toPersianDigits,formatNumber,parseNumber,convertNumberToPersianWords,
+  toPersianDigits,
+  formatNumber,
+  parseNumber,
+  convertNumberToPersianWords,
 } from "../utils/numberUtils";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import AnimatedScrollWrapper, { AnimatedScrollWrapperRef } from '../components/AnimatedScrollWrapper';
-import Header from '../components/Header';
-import CustomText from '../components/CustomText';
-import CustomTextInput from '../components/CustomTextInput';
+import AnimatedScrollWrapper, {
+  AnimatedScrollWrapperRef,
+} from "../components/AnimatedScrollWrapper";
+import Header from "../components/Header";
+import CustomText from "../components/CustomText";
+import ExportAlertModal from "../components/ExportAlertModal";
+import CustomTextInput from "../components/CustomTextInput";
 import { getNextCustomerCode } from "../storage/customerStorage";
 
 export default function AccountScreen({
@@ -33,8 +36,12 @@ export default function AccountScreen({
   const [customerName, setCustomerName] = useState(customerToEdit?.name || "");
   const [address, setAddress] = useState(customerToEdit?.address || "");
   const [phone, setPhone] = useState(customerToEdit?.phone || "");
-  const [economicCode, setEconomicCode] = useState(customerToEdit?.economicCode || "");
-  const [profilePreview, setProfilePreview] = useState(customerToEdit?.avatar || "");
+  const [economicCode, setEconomicCode] = useState(
+    customerToEdit?.economicCode || "",
+  );
+  const [profilePreview, setProfilePreview] = useState(
+    customerToEdit?.avatar || "",
+  );
 
   // استیت مودال هشدار
   const [alertModal, setAlertModal] = useState({
@@ -60,11 +67,12 @@ export default function AccountScreen({
   }, [customerToEdit]);
 
   const handleClose = () => {
-      onNavigate(returnScreen);
+    onNavigate(returnScreen);
   };
 
   const handleProfilePicPress = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permissionResult.granted) {
       setAlertModal({
@@ -118,7 +126,8 @@ export default function AccountScreen({
 
     const customerData = {
       id: customerToEdit ? customerToEdit.id : Date.now(),
-      customerCode: customerToEdit?.customerCode ?? await getNextCustomerCode(),
+      customerCode:
+        customerToEdit?.customerCode ?? (await getNextCustomerCode()),
       name: trimmedName,
       address: address,
       phone: phone,
@@ -133,8 +142,8 @@ export default function AccountScreen({
   };
 
   return (
-   <View style={styles.overlay}>
-{/* هدر صفحه */}
+    <View style={styles.overlay}>
+      {/* هدر صفحه */}
       <Header
         title={
           customerToEdit
@@ -146,9 +155,9 @@ export default function AccountScreen({
       />
 
       {/* محتوای فرم */}
-   <AnimatedScrollWrapper
+      <AnimatedScrollWrapper
         ref={scrollRef}
-        style={{ flex: 1 }} 
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -186,7 +195,7 @@ export default function AccountScreen({
           <View style={styles.inputGroup}>
             <CustomText style={styles.label}>شماره تماس :</CustomText>
             <CustomTextInput
-              style={styles.input} 
+              style={styles.input}
               placeholder=" 0912... "
               placeholderTextColor="#b3d4e6"
               keyboardType="phone-pad"
@@ -199,12 +208,14 @@ export default function AccountScreen({
           <View style={styles.inputGroup}>
             <CustomText style={styles.label}>کد اقتصادی :</CustomText>
             <CustomTextInput
-              style={styles.input} 
+              style={styles.input}
               placeholder=" 0 "
               placeholderTextColor="#b3d4e6"
               keyboardType="numeric"
               value={economicCode}
-              onChangeText={(text: string) => setEconomicCode(toPersianDigits(text))}
+              onChangeText={(text: string) =>
+                setEconomicCode(toPersianDigits(text))
+              }
             />
           </View>
 
@@ -223,7 +234,9 @@ export default function AccountScreen({
                     style={styles.removeBtn}
                     onPress={() => setProfilePreview("")}
                   >
-                    <CustomText style={styles.removeBtnText}>حذف تصویر</CustomText>
+                    <CustomText style={styles.removeBtnText}>
+                      حذف تصویر
+                    </CustomText>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -232,7 +245,9 @@ export default function AccountScreen({
                   style={styles.customFileUpload}
                   onPress={handleProfilePicPress}
                 >
-                  <CustomText style={styles.uploadTextIndicator}>انتخاب فایل</CustomText>
+                  <CustomText style={styles.uploadTextIndicator}>
+                    انتخاب فایل
+                  </CustomText>
                 </TouchableOpacity>
               )}
             </View>
@@ -258,41 +273,14 @@ export default function AccountScreen({
         </LinearGradient>
       </AnimatedScrollWrapper>
 
-      {/* مودال هشدار خروجی/تکراری بودن نام */}
-      <Modal
+      <ExportAlertModal
         visible={alertModal.show}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() =>
+        title={alertModal.title}
+        message={alertModal.message}
+        onClose={() =>
           setAlertModal({ show: false, title: "", message: "" })
         }
-      >
-        <View style={styles.alertOverlay}>
-          <LinearGradient
-            colors={["#0d2b43", "#0f4c75"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.alertBox}
-          >
-            <View style={styles.alertIconBg}>
-              <Ionicons name="warning-outline" size={32} color="#f59e0b" />
-            </View>
-            <CustomText style={styles.alertTitle}>{alertModal.title}</CustomText>
-            <CustomText style={styles.alertMessage}>{alertModal.message}</CustomText>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.alertBtn}
-              onPress={() =>
-                setAlertModal({ show: false, title: "", message: "" })
-              }
-            >
-              <CustomText style={styles.alertBtnText}>متوجه شدم</CustomText>
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      </Modal>
-
+      />
     </View>
   );
 }
@@ -302,13 +290,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#eaf6fc",
   },
- 
-scrollContent: {
-  flexGrow: 1,
-  paddingVertical: 10,
-  paddingHorizontal: 15,
-  paddingBottom: 400,
-},
+
+  scrollContent: {
+    flexGrow: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    paddingBottom: 400,
+  },
   formCard: {
     borderRadius: 20,
     paddingVertical: 10,
@@ -326,7 +314,7 @@ scrollContent: {
     paddingVertical: 5,
   },
   label: {
-    fontSize: 14, 
+    fontSize: 14,
     fontWeight: "700",
     color: "#ffffff",
     textAlign: "right",
@@ -342,7 +330,6 @@ scrollContent: {
     paddingHorizontal: 10,
     fontSize: 14,
     color: "#ffffff",
-    // textAlign: "right", 
   },
   profileUploadGroup: {
     alignItems: "center",
@@ -367,7 +354,7 @@ scrollContent: {
   },
   uploadTextIndicator: {
     color: "#b3d4e6",
-    fontSize: 13, 
+    fontSize: 13,
     fontWeight: "500",
   },
   previewBox: {
@@ -420,63 +407,8 @@ scrollContent: {
   },
   btnSaveText: {
     color: "#ffffff",
-    fontSize: 14, 
+    fontSize: 14,
     fontWeight: "900",
   },
-  alertOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  alertBox: {
-    width: "80%",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#adc7d8",
-    paddingVertical: 20,
-    paddingHorizontal: 15,
-    alignItems: "center",
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-  },
-  alertIconBg: {
-    backgroundColor: "rgba(245, 158, 11, 0.12)",
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  alertTitle: {
-    fontSize: 19, 
-    fontWeight: "900",
-    color: "#ffffff",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  alertMessage: {
-    fontSize: 15,
-    color: "#ffffff",
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  alertBtn: {
-    width: "70%",
-    backgroundColor: "#145d8e",
-    paddingVertical: 12,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  alertBtnText: {
-    color: "#ffffff",
-    fontSize: 16, 
-    fontWeight: "bold",
-  },
+
 });

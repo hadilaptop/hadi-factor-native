@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Animated,
@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Svg, { Path, Polyline } from "react-native-svg";
 import Header from "../components/Header";
 import CustomText from "../components/CustomText";
+import ActionDropdown from "../components/ActionDropdown";
 import {
   toPersianDigits,
   formatNumber,
@@ -568,20 +569,12 @@ return (
                 </TouchableOpacity>
 
                   {/* Action Menu Dropdown */}
-                  <Modal
+                  <ActionDropdown
                     visible={isMenuOpen}
-                    transparent
-                    animationType="none"
-                    onRequestClose={() => setOpenMenuId(null)}
+                    position={menuPosition}
+                    onClose={() => setOpenMenuId(null)}
+                    menuStyle={styles.cardMenu}
                   >
-                    <Pressable
-                      style={styles.dropdownModalOverlay}
-                      onPress={() => setOpenMenuId(null)}
-                    >
-                      <View
-                        style={[styles.cardMenu, { top: menuPosition.top, left: menuPosition.left }]}
-                        onStartShouldSetResponder={() => true}
-                      >
                       {isPayment ? (
                         <TouchableOpacity
                           style={styles.cardMenuItem}
@@ -663,9 +656,7 @@ return (
                          حذف فاکتور
                         </CustomText>
                       </TouchableOpacity>
-                      </View>
-                    </Pressable>
-                  </Modal>
+                  </ActionDropdown>
 
 
                 {/* Expanded Details */}
