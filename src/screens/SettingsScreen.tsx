@@ -4,12 +4,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
-  Image,
   KeyboardAvoidingView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as ImagePicker from "expo-image-picker";
+import ImageUpload from "../components/ImageUpload";
 import Header from "../components/Header";
 import ExportAlertModal from "../components/ExportAlertModal";
 import AnimatedScrollWrapper, {
@@ -38,6 +37,8 @@ export default function SettingsScreen({
   const [companyPhone, setCompanyPhone] = useState("");
   const [economicCode, setEconomicCode] = useState("");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [sealPreview, setSealPreview] = useState<string | null>(null);
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
   const [exportAlertModal, setExportAlertModal] = useState<{
     show: boolean;
     title: string;
@@ -62,6 +63,8 @@ export default function SettingsScreen({
         const storedPhone = await AsyncStorage.getItem("companyPhone");
         const storedCode = await AsyncStorage.getItem("companyEconomicCode");
         const storedLogo = await AsyncStorage.getItem("companyLogo");
+        const storedSeal = await AsyncStorage.getItem("companySeal");
+        const storedSignature = await AsyncStorage.getItem("companySignature");
 
         if (storedTheme) setTheme(storedTheme);
         if (storedName) setCompanyName(storedName);
@@ -69,6 +72,8 @@ export default function SettingsScreen({
         if (storedPhone) setCompanyPhone(storedPhone);
         if (storedCode) setEconomicCode(storedCode);
         if (storedLogo) setLogoPreview(storedLogo);
+        if (storedSeal) setSealPreview(storedSeal);
+        if (storedSignature) setSignaturePreview(storedSignature);
       } catch (e) {
         console.error("Failed to load settings.");
       }
@@ -80,25 +85,6 @@ export default function SettingsScreen({
       onNavigate(returnScreen);
   };
 
-  const handleLogoSelect = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      setExportAlertModal({ show: true, title: "خطا", message: "برای انتخاب لوگو به دسترسی گالری نیاز داریم." });
-      return;
-    }
-
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-
-    if (!result.canceled && result.assets[0].uri) {
-      setLogoPreview(result.assets[0].uri);
-    }
-  };
-
   const handleSave = async () => {
     try {
       await AsyncStorage.setItem("invoiceTheme", theme);
@@ -106,11 +92,12 @@ export default function SettingsScreen({
       await AsyncStorage.setItem("companyAddress", companyAddress.trim());
       await AsyncStorage.setItem("companyPhone", companyPhone.trim());
       await AsyncStorage.setItem("companyEconomicCode", economicCode.trim());
-      if (logoPreview) {
-        await AsyncStorage.setItem("companyLogo", logoPreview);
-      } else {
-        await AsyncStorage.removeItem("companyLogo");
-      }
+      if (logoPreview) await AsyncStorage.setItem("companyLogo", logoPreview);
+      else await AsyncStorage.removeItem("companyLogo");
+      if (sealPreview) await AsyncStorage.setItem("companySeal", sealPreview);
+      else await AsyncStorage.removeItem("companySeal");
+      if (signaturePreview) await AsyncStorage.setItem("companySignature", signaturePreview);
+      else await AsyncStorage.removeItem("companySignature");
 
       setExportAlertModal({
         show: true,
@@ -142,6 +129,8 @@ export default function SettingsScreen({
     setCompanyPhone("");
     setEconomicCode("");
     setLogoPreview(null);
+    setSealPreview(null);
+    setSignaturePreview(null);
 
     try {
       await AsyncStorage.multiRemove([
@@ -151,6 +140,8 @@ export default function SettingsScreen({
         "companyPhone",
         "companyEconomicCode",
         "companyLogo",
+        "companySeal",
+        "companySignature",
       ]);
 
     } catch {
@@ -265,32 +256,31 @@ export default function SettingsScreen({
             </View>
 
             <View style={styles.inputGroup}>
-              <CustomText style={styles.label}>لوگوی شرکت :</CustomText>
-              {logoPreview ? (
-                <View style={styles.logoPreviewBox}>
-                  <Image
-                    source={{ uri: logoPreview }}
-                    style={styles.logoPreviewImg}
-                  />
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.logoRemoveBtn}
-                    onPress={() => setLogoPreview(null)}
-                  >
-                    <CustomText style={styles.logoRemoveBtnText}>حذف لوگو</CustomText>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.logoUploadBtn}
-                  onPress={handleLogoSelect}
-                  activeOpacity={0.8}
-                >
-                  <CustomText style={styles.logoUploadText}>
-                    انتخاب لوگو
-                  </CustomText>
-                </TouchableOpacity>
-              )}
+              <ImageUpload label="لوگوی شرکت :" value={logoPreview} onChange={setLogoPreview}
+                onError={(message) => setExportAlertModal({ show: true, title: "خطا", message })}
+                imageWidth={130} imageHeight={130} uploadText="انتخاب لوگو" removeText="حذف لوگو"
+                uploadButtonStyle={styles.logoUploadBtn} uploadTextStyle={styles.logoUploadText}
+                previewBoxStyle={styles.logoPreviewBox} imageStyle={styles.logoPreviewImg}
+                removeButtonStyle={styles.logoRemoveBtn} removeTextStyle={styles.logoRemoveBtnText}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <ImageUpload label="مهر شرکت :" value={sealPreview} onChange={setSealPreview}
+                onError={(message) => setExportAlertModal({ show: true, title: "خطا", message })}
+                imageWidth={130} imageHeight={130} uploadText="انتخاب مهر" removeText="حذف مهر"
+                uploadButtonStyle={styles.logoUploadBtn} uploadTextStyle={styles.logoUploadText}
+                previewBoxStyle={styles.logoPreviewBox} imageStyle={styles.logoPreviewImg}
+                removeButtonStyle={styles.logoRemoveBtn} removeTextStyle={styles.logoRemoveBtnText}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <ImageUpload label="امضای مدیر :" value={signaturePreview} onChange={setSignaturePreview}
+                onError={(message) => setExportAlertModal({ show: true, title: "خطا", message })}
+                imageWidth={130} imageHeight={130} uploadText="انتخاب امضا" removeText="حذف امضا"
+                uploadButtonStyle={styles.logoUploadBtn} uploadTextStyle={styles.logoUploadText}
+                previewBoxStyle={styles.logoPreviewBox} imageStyle={styles.logoPreviewImg}
+                removeButtonStyle={styles.logoRemoveBtn} removeTextStyle={styles.logoRemoveBtnText}
+              />
             </View>
           </LinearGradient>
 

@@ -190,6 +190,14 @@ export default function App() {
       activeTab={currentScreen === 'customerPayment' ? 'receipt' : currentScreen}
       onNavigate={(screen) => {
         if (screen === 'settings') setSettingsReturnScreen(currentScreen);
+        if (screen === 'invoice') {
+          setInvoiceReturnScreen(currentScreen === 'customerLedger' && selectedCustomer ? 'customerLedger' : 'dashboard');
+          if (currentScreen !== 'customerLedger') {
+            setSelectedCustomer(null);
+            setSelectedInvoice(null);
+            setInvoiceMode(null);
+          }
+        }
         if (screen === 'newAccount') {
           setCustomerToEdit(null); setCustomerFormReturnScreen('dashboard');
         }

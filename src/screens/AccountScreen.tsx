@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import * as ImagePicker from "expo-image-picker";
+import ImageUpload from "../components/ImageUpload";
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
   Platform,
-  Image,
   Dimensions,
 } from "react-native";
 import {
@@ -68,31 +67,6 @@ export default function AccountScreen({
 
   const handleClose = () => {
     onNavigate(returnScreen);
-  };
-
-  const handleProfilePicPress = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissionResult.granted) {
-      setAlertModal({
-        show: true,
-        title: "دسترسی به گالری",
-        message: "برای انتخاب عکس، دسترسی به گالری تصاویر را فعال کنید.",
-      });
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setProfilePreview(result.assets[0].uri);
-    }
   };
 
   const handleSave = async () => {
@@ -219,38 +193,16 @@ export default function AccountScreen({
             />
           </View>
 
-          {/* آپلود عکس */}
           <View style={styles.profileUploadGroup}>
-            <CustomText style={styles.label}>عکس پروفایل :</CustomText>
-            <View style={styles.profileUploadWrapper}>
-              {profilePreview ? (
-                <View style={styles.previewBox}>
-                  <Image
-                    source={{ uri: profilePreview }}
-                    style={styles.previewImg}
-                  />
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.removeBtn}
-                    onPress={() => setProfilePreview("")}
-                  >
-                    <CustomText style={styles.removeBtnText}>
-                      حذف تصویر
-                    </CustomText>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={styles.customFileUpload}
-                  onPress={handleProfilePicPress}
-                >
-                  <CustomText style={styles.uploadTextIndicator}>
-                    انتخاب فایل
-                  </CustomText>
-                </TouchableOpacity>
-              )}
-            </View>
+            <ImageUpload label="عکس پروفایل :" value={profilePreview}
+              onChange={(image) => setProfilePreview(image || "")}
+              onError={(message) => setAlertModal({ show: true, title: "دسترسی به گالری", message })}
+              imageWidth={120} imageHeight={120} uploadText="انتخاب فایل" removeText="حذف تصویر"
+              wrapperStyle={styles.profileUploadWrapper} labelStyle={styles.label}
+              uploadButtonStyle={styles.customFileUpload} uploadTextStyle={styles.uploadTextIndicator}
+              previewBoxStyle={styles.previewBox} imageStyle={styles.previewImg}
+              removeButtonStyle={styles.removeBtn} removeTextStyle={styles.removeBtnText}
+            />
           </View>
 
           {/* دکمه اکشن */}

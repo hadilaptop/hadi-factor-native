@@ -124,6 +124,8 @@ export default function CustomerLedgerScreen({
     return () => animation.stop();
   }, [statementActionsAnim]);
 
+  const tabsScrollRef = useRef<ScrollView>(null);
+
   const filterBarSlideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
   const listSlideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
 
@@ -281,8 +283,10 @@ return (
       <Animated.View style={{ transform: [{ translateX: filterBarSlideAnim }] }}>
         <LinearGradient colors={["#22628e", "#2f77a7"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.filterBar}>
         <ScrollView
+          ref={tabsScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
+          onContentSizeChange={() => tabsScrollRef.current?.scrollToEnd({ animated: false })}
           contentContainerStyle={styles.tabsContainer}
         >
           <TouchableOpacity

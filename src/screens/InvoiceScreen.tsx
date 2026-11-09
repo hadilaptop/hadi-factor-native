@@ -218,12 +218,18 @@ export default function InvoiceScreen({
   const [sellerLogo, setSellerLogo] = useState<string | null>(
     invoiceToEdit?.sellerLogo ?? null,
   );
+  const [sellerSeal, setSellerSeal] = useState<string | null>(
+    invoiceToEdit?.sellerSeal ?? null,
+  );
+  const [sellerSignature, setSellerSignature] = useState<string | null>(
+    invoiceToEdit?.sellerSignature ?? null,
+  );
   const [invoiceTheme, setInvoiceTheme] = useState("blue");
 
   useEffect(() => {
     const loadCompanySettings = async () => {
       try {
-        const [name, phone, address, code, logo, storedTheme] =
+        const [name, phone, address, code, logo, storedTheme, seal, signature] =
           await AsyncStorage.multiGet([
             "companyName",
             "companyPhone",
@@ -231,6 +237,8 @@ export default function InvoiceScreen({
             "companyEconomicCode",
             "companyLogo",
             "invoiceTheme",
+            "companySeal",
+            "companySignature",
           ]);
         if (storedTheme[1]) setInvoiceTheme(storedTheme[1]);
         if (invoiceToEdit?.sellerName === undefined)
@@ -243,6 +251,10 @@ export default function InvoiceScreen({
           setSellerEconomicCode(code[1] || "");
         if (invoiceToEdit?.sellerLogo === undefined)
           setSellerLogo(logo[1] || null);
+        if (invoiceToEdit?.sellerSeal === undefined)
+          setSellerSeal(seal[1] || null);
+        if (invoiceToEdit?.sellerSignature === undefined)
+          setSellerSignature(signature[1] || null);
       } catch (error) {
         console.error("Failed to load company invoice settings.", error);
       }
@@ -436,6 +448,8 @@ export default function InvoiceScreen({
         sellerAddress,
         sellerEconomicCode,
         sellerLogo,
+        sellerSeal,
+        sellerSignature,
       };
 
       const isUpdate = invoiceWasSavedRef.current;
@@ -870,6 +884,8 @@ export default function InvoiceScreen({
               sellerPhone={sellerPhone}
               sellerEconomicCode={sellerEconomicCode}
               sellerLogo={sellerLogo}
+              sellerSeal={sellerSeal}
+              sellerSignature={sellerSignature}
               invoiceNumber={invoiceNumber}
               invoiceDate={invoiceDate}
               buyerName={buyerName}

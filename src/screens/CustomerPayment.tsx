@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -13,6 +12,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../components/Header";
+import ImageUpload from "../components/ImageUpload";
 import CustomText from "../components/CustomText";
 import CustomTextInput from "../components/CustomTextInput";
 import JalaliDatePicker from "../components/JalaliDatePicker";
@@ -108,23 +108,6 @@ export default function CustomerPayment({
     () => customers.find((item) => String(item.id) === String(selectedCustomerId)) || customer || null,
     [customers, selectedCustomerId, customer],
   );
-
-  const handlePickAttachment = async () => {
-    try {
-      const ImagePicker = await import("expo-image-picker");
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.35,
-        base64: true,
-      });
-      if (result.canceled || !result.assets[0]) return;
-      const asset = result.assets[0];
-      if (asset.base64) setPaymentAttachment(`data:image/jpeg;base64,${asset.base64}`);
-    } catch {
-      setAlertModal({ show: true, title: "خطا", message: "انتخاب تصویر انجام نشد." });
-    }
-  };
 
   const handleSave = async () => {
     if (!selectedCustomer) {
@@ -307,29 +290,16 @@ export default function CustomerPayment({
           />
 
           <View style={styles.profileUploadGroup}>
-            <CustomText style={styles.inputLabel}>پیوست تصویر سند</CustomText>
-            <View style={styles.profileUploadWrapper}>
-              {paymentAttachment ? (
-                <View style={styles.previewBox}>
-                  <Image source={{ uri: paymentAttachment }} style={styles.previewImg} />
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.removeBtn}
-                    onPress={() => setPaymentAttachment(null)}
-                  >
-                    <CustomText style={styles.removeBtnText}>حذف تصویر</CustomText>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={styles.customFileUpload}
-                  onPress={handlePickAttachment}
-                >
-                  <CustomText style={styles.uploadTextIndicator}>انتخاب فایل</CustomText>
-                </TouchableOpacity>
-              )}
-            </View>
+            <ImageUpload label="پیوست تصویر سند" value={paymentAttachment}
+              onChange={setPaymentAttachment}
+              onError={(message) => setAlertModal({ show: true, title: "خطا", message })}
+              aspect={null} quality={0.35} encodeBase64 imageWidth={120} imageHeight={120}
+              uploadText="انتخاب فایل" removeText="حذف تصویر"
+              wrapperStyle={styles.profileUploadWrapper} labelStyle={styles.inputLabel}
+              uploadButtonStyle={styles.customFileUpload} uploadTextStyle={styles.uploadTextIndicator}
+              previewBoxStyle={styles.previewBox} imageStyle={styles.previewImg}
+              removeButtonStyle={styles.removeBtn} removeTextStyle={styles.removeBtnText}
+            />
           </View>
 
           <View style={styles.actions}>

@@ -42,6 +42,8 @@ interface InvoicePreviewProps {
   sellerPhone: string;
   sellerEconomicCode: string;
   sellerLogo: string | null;
+  sellerSeal: string | null;
+  sellerSignature: string | null;
   invoiceNumber: string;
   invoiceDate: string;
   buyerName: string;
@@ -67,6 +69,8 @@ export default function InvoicePreview({
   sellerPhone,
   sellerEconomicCode,
   sellerLogo,
+  sellerSeal,
+  sellerSignature,
   invoiceNumber,
   invoiceDate,
   buyerName,
@@ -297,13 +301,26 @@ export default function InvoicePreview({
 
               <View style={[styles.previewFooter, { borderTopColor: themeColors.secondary, backgroundColor: themeColors.light }]}>
                 <View style={[styles.previewDivider, { backgroundColor: themeColors.secondary }]} />
-                <Text style={[styles.footerCompanyName, { color: themeColors.primary, backgroundColor: themeColors.light, borderColor: themeColors.border }]}>{sellerName || "نام شرکت"}</Text>
-                {sellerAddress ? (
-                  <Text style={styles.previewFooterText}>{sellerAddress}</Text>
-                ) : null}
-                {sellerPhone ? (
-                  <Text style={styles.previewFooterText}>{toPersianDigits(sellerPhone)}</Text>
-                ) : null}
+                <View style={styles.footerMainRow}>
+                  <View style={styles.footerCompanyInfo}>
+                    {sellerAddress ? (
+                      <Text style={styles.previewFooterText}>{sellerAddress}</Text>
+                    ) : null}
+                    {sellerPhone ? (
+                      <Text style={styles.previewFooterText}>{toPersianDigits(sellerPhone)}</Text>
+                    ) : null}
+                  </View>
+                  {(sellerSeal || sellerSignature) ? (
+                    <View style={styles.footerMarks}>
+                      {sellerSeal ? (
+                        <Image source={{ uri: sellerSeal }} style={styles.footerSealImage} />
+                      ) : null}
+                      {sellerSignature ? (
+                        <Image source={{ uri: sellerSignature }} style={styles.footerSignatureImage} />
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
               </View>
             </View>
             </Animated.View>
@@ -379,8 +396,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sellerLogo: {
-    width: 170,
-    height: 60,
+    width: 200,
+    height: 75,
     resizeMode: "contain",
     borderRadius: 6,
   },
@@ -659,5 +676,36 @@ const styles = StyleSheet.create({
     
     color: "#1b262c",
     textAlign: "center",
+  },
+  footerMainRow: {
+    width: "100%",
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    paddingHorizontal: 12,
+  },
+  footerCompanyInfo: {
+    flex: 1,
+    alignItems: "flex-end",
+    justifyContent: "center",
+    gap: 8,
+  },
+  footerMarks: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: 12,
+    marginLeft: 30,
+  },
+  footerSealImage: {
+    width: 110,
+    height: 110,
+    resizeMode: "contain",
+  },
+  footerSignatureImage: {
+    width: 110,
+    height: 110,
+    resizeMode: "contain",
   },
 });
