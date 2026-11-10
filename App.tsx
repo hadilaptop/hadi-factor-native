@@ -1,5 +1,7 @@
+import 'react-native-gesture-handler';
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, StatusBar, View, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import HomeScreen from './src/screens/HomeScreen';
@@ -33,8 +35,13 @@ export default function App() {
 
   useEffect(() => {
     async function loadAppFonts() {
-      await Font.loadAsync({ Vazirmatn: require('./assets/fonts/Vazirmatn-FD-Bold.ttf') });
-      setFontsLoaded(true);
+      try {
+        await Font.loadAsync({ Vazirmatn: require('./assets/fonts/Vazirmatn-FD-Bold.ttf') });
+      } catch (error) {
+        console.error('خطا در بارگذاری فونت:', error);
+      } finally {
+        setFontsLoaded(true);
+      }
     }
     async function loadCustomers() {
       try {
@@ -183,7 +190,7 @@ export default function App() {
     <ActivityIndicator size="large" color="#10b981" />
   </View>;
 
-  return <SafeAreaProvider><SafeAreaView style={styles.container} edges={['left', 'right']}>
+  return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider><SafeAreaView style={styles.container} edges={['left', 'right']}>
     <StatusBar barStyle="light-content" />
     {renderScreen()}
     <BottomNav
@@ -221,7 +228,7 @@ export default function App() {
         setCurrentScreen(screen);
       }}
     />
-  </SafeAreaView></SafeAreaProvider>;
+  </SafeAreaView></SafeAreaProvider></GestureHandlerRootView>;
 }
 
 const styles = StyleSheet.create({

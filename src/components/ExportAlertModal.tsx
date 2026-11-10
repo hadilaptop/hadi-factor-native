@@ -84,7 +84,6 @@ export default function ExportAlertModal({
           <BlurView
             intensity={30}
             tint="dark"
-            experimentalBlurMethod="dimezisBlurView"
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.backdropDim} />

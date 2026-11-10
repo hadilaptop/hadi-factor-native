@@ -19,9 +19,11 @@ import Svg, { Path, Polyline } from "react-native-svg";
 import Header from "../components/Header";
 import CustomText from "../components/CustomText";
 import ActionDropdown from "../components/ActionDropdown";
+import PaymentComponent from "../components/PaymentComponent";
+import InvoiceComponent from "../components/InvoiceComponent";
+import ProformaComponent from "../components/ProformaComponent";
 import {
   toPersianDigits,
-  formatNumber,
   getCustomerCode,
 } from "../utils/invoiceHelpers";
 import { Customer } from "../storage/customerStorage";
@@ -124,7 +126,7 @@ export default function CustomerLedgerScreen({
     return () => animation.stop();
   }, [statementActionsAnim]);
 
-  const tabsScrollRef = useRef<ScrollView>(null);
+  const tabsScrollRef = useRef<React.ElementRef<typeof ScrollView>>(null);
 
   const filterBarSlideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
   const listSlideAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
@@ -670,118 +672,9 @@ return (
                     exiting={FadeOutUp.duration(50)}
                   >
                     <View style={styles.expandedBody}>
-                    {isPayment && (
-                      <View style={styles.detailsBox}>
-                        <View style={styles.detailRowBetween}>
-                          <CustomText style={styles.detailLabel}>
-                            مبلغ دریافتی:
-                          </CustomText>
-                          <CustomText style={styles.amountValue}>
-                            {toPersianDigits(formatNumber(item.amount))} ریال
-                          </CustomText>
-                        </View>
-                        {(item.method === "چک" ||
-                          item.bankName ||
-                          item.checkNumber) && (
-                          <View style={styles.checkSubDetails}>
-                            {!!item.bankName && (
-                              <CustomText style={styles.subDetailText}>
-                                🏦 بانک: {item.bankName}
-                              </CustomText>
-                            )}
-                            {!!item.checkNumber && (
-                              <CustomText style={styles.subDetailText}>
-                                🔢 شماره چک: {toPersianDigits(item.checkNumber)}
-                              </CustomText>
-                            )}
-                            {!!item.checkDate && (
-                              <CustomText style={styles.subDetailText}>
-                                📆 تاریخ سررسید:{" "}
-                                {toPersianDigits(item.checkDate)}
-                              </CustomText>
-                            )}
-                          </View>
-                        )}
-                        {!!item.note?.trim() && (
-                          <View style={styles.checkSubDetails}>
-                            <CustomText style={styles.subDetailText}>
-                              توضیحات: {item.note.trim()}
-                            </CustomText>
-                          </View>
-                        )}
-                      </View>
-                    )}
-
-                    {isInvoice && (
-                      <View style={styles.miniInvoiceBox}>
-                        <View style={styles.miniHeader}>
-                          <CustomText style={[styles.miniCol, { flex: 2, textAlign: "right" }]}>
-                            شرح کالا
-                          </CustomText>
-                          <CustomText
-                            style={[
-                              styles.miniCol,
-                              { flex: 1, textAlign: "center" },
-                            ]}
-                          >
-                            تعداد
-                          </CustomText>
-                          <CustomText
-                            style={[
-                              styles.miniCol,
-                              { flex: 1.5, textAlign: "left" },
-                            ]}
-                          >
-                            مبلغ (ریال)
-                          </CustomText>
-                        </View>
-                        {Array.isArray(item.items) && item.items.length > 0 ? (
-                          item.items.map((it: any, idx: number) => (
-                            <View key={idx} style={styles.miniRow}>
-                              <CustomText
-                                style={[styles.miniCell, { flex: 2, textAlign: "right" }]}
-                              >
-                                {typeof it === "object" ? it.desc : it}
-                              </CustomText>
-                              <CustomText
-                                style={[
-                                  styles.miniCell,
-                                  { flex: 1, textAlign: "center" },
-                                ]}
-                              >
-                                {toPersianDigits(
-                                  typeof it === "object" ? it.quantity : "1",
-                                )}
-                              </CustomText>
-                              <CustomText
-                                style={[
-                                  styles.miniCell,
-                                  { flex: 1.5, textAlign: "left" },
-                                ]}
-                              >
-                                {typeof it === "object" && it.unitPrice
-                                  ? toPersianDigits(formatNumber(it.unitPrice))
-                                  : "-"}
-                              </CustomText>
-                            </View>
-                          ))
-                        ) : (
-                          <View style={styles.miniRow}>
-                            <CustomText style={styles.miniCell}>
-                              بدون قلم کالا
-                            </CustomText>
-                          </View>
-                        )}
-                        <View style={styles.miniFooter}>
-                          <CustomText style={styles.miniFooterLabel}>
-                            جمع کل:
-                          </CustomText>
-                          <CustomText style={styles.miniFooterVal}>
-                            {toPersianDigits(formatNumber(item.amount))} ریال
-                          </CustomText>
-                        </View>
-                      </View>
-                    )}
+                    {isPayment && <PaymentComponent item={item} styles={styles} />}
+                    {isInvoice && !isProforma && <InvoiceComponent item={item} styles={styles} />}
+                    {isProforma && <ProformaComponent item={item} styles={styles} />}
 
                     {!!item.attachment && (
                       <TouchableOpacity
