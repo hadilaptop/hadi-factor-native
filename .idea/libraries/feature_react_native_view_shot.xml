@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="feature-react-native-view-shot">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/node_modules/react-native-view-shot/android/build/intermediates/merged_java_res/release/mergeReleaseJavaResource/feature-react-native-view-shot.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

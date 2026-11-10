@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="feature-expo-dom-webview">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/node_modules/@expo/dom-webview/android/build/intermediates/merged_java_res/release/mergeReleaseJavaResource/feature-expo-dom-webview.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
