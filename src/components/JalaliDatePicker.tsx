@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   Modal,
@@ -42,36 +48,49 @@ const WEEK_DAYS = [
   "جمعه",
 ];
 
-const YEARS = Array.from({ length: 20 }, (_, index) => 1395 + index);
+const CURRENT_JALALI = jalaali.toJalaali(new Date());
+const YEARS = Array.from(
+  { length: 21 },
+  (_, index) => CURRENT_JALALI.jy - 10 + index,
+);
 
 function toEnglishDigits(value: string) {
   return value.replace(/[۰-۹]/g, (digit) =>
-    String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit))
+    String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)),
   );
 }
 
 function toPersianDigits(value: string | number) {
-  return String(value).replace(/[0-9]/g, (digit) =>
-    "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]
+  return String(value).replace(
+    /[0-9]/g,
+    (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)],
   );
 }
 
 function parseInitialDate(initialDate?: string) {
-  if (!initialDate) return { year: 1403, month: 1 };
+  if (!initialDate)
+    return { year: CURRENT_JALALI.jy, month: CURRENT_JALALI.jm };
 
   const parts = toEnglishDigits(initialDate).split("/");
   if (parts.length === 3) {
-    const year = Number.parseInt(parts[0], 10) || 1403;
+    const year = Number.parseInt(parts[0], 10) || CURRENT_JALALI.jy;
     const month = Number.parseInt(parts[1], 10) || 1;
     const day = Number.parseInt(parts[2], 10) || 1;
-    if (year >= 1700 && year <= 2200 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+    if (
+      year >= 1700 &&
+      year <= 2200 &&
+      month >= 1 &&
+      month <= 12 &&
+      day >= 1 &&
+      day <= 31
+    ) {
       const jalaliDate = jalaali.toJalaali(year, month, day);
       return { year: jalaliDate.jy, month: jalaliDate.jm };
     }
     return { year, month: Math.max(1, Math.min(12, month)) };
   }
 
-  return { year: 1403, month: 1 };
+  return { year: CURRENT_JALALI.jy, month: CURRENT_JALALI.jm };
 }
 
 export default function JalaliDatePicker({
@@ -82,19 +101,33 @@ export default function JalaliDatePicker({
 }: JalaliDatePickerProps) {
   const parsedInitialDate = useMemo(
     () => parseInitialDate(initialDate),
-    [initialDate]
+    [initialDate],
   );
   const [pickerYear, setPickerYear] = useState(parsedInitialDate.year);
   const [pickerMonth, setPickerMonth] = useState(parsedInitialDate.month);
   const [isYearMenuOpen, setIsYearMenuOpen] = useState(false);
   const [isMonthMenuOpen, setIsMonthMenuOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+const yearScrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+const monthScrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [modalLayout, setModalLayout] = useState({ x: 0, y: 0 });
   const [selectsLayout, setSelectsLayout] = useState({ x: 0, y: 0 });
-  const [yearDropdownLayout, setYearDropdownLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
-  const [monthDropdownLayout, setMonthDropdownLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [yearDropdownLayout, setYearDropdownLayout] = useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
+  const [monthDropdownLayout, setMonthDropdownLayout] = useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
   const fade = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.9)).current;
+  const yearDropdownAnim = useRef(new Animated.Value(0)).current;
+  const monthDropdownAnim = useRef(new Animated.Value(0)).current;
 
   const todayJalali = useMemo(() => jalaali.toJalaali(new Date()), []);
   const firstGregorianDate = jalaali.toGregorian(pickerYear, pickerMonth, 1);
@@ -102,7 +135,7 @@ export default function JalaliDatePicker({
     (new Date(
       firstGregorianDate.gy,
       firstGregorianDate.gm - 1,
-      firstGregorianDate.gd
+      firstGregorianDate.gd,
     ).getDay() +
       1) %
     7;
@@ -123,6 +156,11 @@ export default function JalaliDatePicker({
       return;
     }
 
+    setPickerYear(todayJalali.jy);
+    setPickerMonth(todayJalali.jm);
+    setIsYearMenuOpen(false);
+    setIsMonthMenuOpen(false);
+
     Animated.parallel([
       Animated.timing(fade, {
         toValue: 1,
@@ -136,34 +174,62 @@ export default function JalaliDatePicker({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [visible, fade, scale]);
+  }, [visible, fade, scale, todayJalali]);
 
-  const closePicker = useCallback(
-    (selectDate?: string) => {
-      if (isClosing) return;
-      setIsClosing(true);
-      Animated.parallel([
-        Animated.timing(fade, {
-          toValue: 0,
-          duration: 120,
-          useNativeDriver: true,
+  useEffect(() => {
+    if (isYearMenuOpen) {
+      yearDropdownAnim.setValue(0);
+      Animated.timing(yearDropdownAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+
+      const selectedIndex = YEARS.indexOf(pickerYear);
+      requestAnimationFrame(() =>
+        yearScrollRef.current?.scrollTo({
+          y: Math.max(0, selectedIndex) * 37,
+          animated: false,
         }),
-        Animated.timing(scale, {
-          toValue: 0.9,
-          duration: 120,
-          useNativeDriver: true,
+      );
+    }
+  }, [isYearMenuOpen, pickerYear, yearDropdownAnim]);
+
+  useEffect(() => {
+    if (isMonthMenuOpen) {
+      monthDropdownAnim.setValue(0);
+      Animated.timing(monthDropdownAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+
+      requestAnimationFrame(() =>
+        monthScrollRef.current?.scrollTo({
+          y: Math.max(0, pickerMonth - 1) * 34,
+          animated: false,
         }),
-      ]).start(({ finished }) => {
-        if (!finished) return;
-        setIsClosing(false);
-        setIsYearMenuOpen(false);
-        setIsMonthMenuOpen(false);
-        if (selectDate) onSelectDate(selectDate);
-        onClose();
-      });
-    },
-    [fade, scale, isClosing, onClose, onSelectDate]
-  );
+      );
+    }
+  }, [isMonthMenuOpen, pickerMonth, monthDropdownAnim]);
+
+const closePicker = useCallback(
+  (selectDate?: string) => {
+    if (isClosing) return;
+
+    setIsClosing(true);
+    fade.setValue(0);
+    scale.setValue(1);
+
+    setIsClosing(false);
+    setIsYearMenuOpen(false);
+    setIsMonthMenuOpen(false);
+
+    if (selectDate) onSelectDate(selectDate);
+    onClose();
+  },
+  [fade, scale, isClosing, onClose, onSelectDate],
+);
 
   const selectDay = (day: number) => {
     const month = String(pickerMonth).padStart(2, "0");
@@ -193,7 +259,12 @@ export default function JalaliDatePicker({
               transform: [{ scale }],
             },
           ]}
-          onLayout={(event) => setModalLayout({ x: event.nativeEvent.layout.x, y: event.nativeEvent.layout.y })}
+          onLayout={(event) =>
+            setModalLayout({
+              x: event.nativeEvent.layout.x,
+              y: event.nativeEvent.layout.y,
+            })
+          }
         >
           <View style={styles.header}>
             <CustomText style={styles.title}>انتخاب تاریخ</CustomText>
@@ -207,8 +278,32 @@ export default function JalaliDatePicker({
             </Pressable>
           </View>
 
-          <View style={styles.selects} onLayout={(event) => setSelectsLayout({ x: event.nativeEvent.layout.x, y: event.nativeEvent.layout.y })}>
-            <View style={[styles.dropdown, { zIndex: isYearMenuOpen ? 30 : 1, elevation: isYearMenuOpen ? 30 : 0 }]} onLayout={(event) => setYearDropdownLayout({ x: event.nativeEvent.layout.x, y: event.nativeEvent.layout.y, width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
+          <View
+            style={styles.selects}
+            onLayout={(event) =>
+              setSelectsLayout({
+                x: event.nativeEvent.layout.x,
+                y: event.nativeEvent.layout.y,
+              })
+            }
+          >
+            <View
+              style={[
+                styles.dropdown,
+                {
+                  zIndex: isYearMenuOpen ? 30 : 1,
+                  elevation: isYearMenuOpen ? 30 : 0,
+                },
+              ]}
+              onLayout={(event) =>
+                setYearDropdownLayout({
+                  x: event.nativeEvent.layout.x,
+                  y: event.nativeEvent.layout.y,
+                  width: event.nativeEvent.layout.width,
+                  height: event.nativeEvent.layout.height,
+                })
+              }
+            >
               <Pressable
                 style={styles.selectButton}
                 onPress={() => {
@@ -223,8 +318,21 @@ export default function JalaliDatePicker({
             </View>
 
             <View
-              style={[styles.dropdown, { zIndex: isMonthMenuOpen ? 30 : 1, elevation: isMonthMenuOpen ? 30 : 0 }]}
-              onLayout={(event) => setMonthDropdownLayout({ x: event.nativeEvent.layout.x, y: event.nativeEvent.layout.y, width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}
+              style={[
+                styles.dropdown,
+                {
+                  zIndex: isMonthMenuOpen ? 30 : 1,
+                  elevation: isMonthMenuOpen ? 30 : 0,
+                },
+              ]}
+              onLayout={(event) =>
+                setMonthDropdownLayout({
+                  x: event.nativeEvent.layout.x,
+                  y: event.nativeEvent.layout.y,
+                  width: event.nativeEvent.layout.width,
+                  height: event.nativeEvent.layout.height,
+                })
+              }
             >
               <Pressable
                 style={styles.selectButton}
@@ -244,10 +352,7 @@ export default function JalaliDatePicker({
             {WEEK_DAYS.map((day, index) => (
               <View key={day} style={styles.weekDayCell}>
                 <CustomText
-                  style={[
-                    styles.weekDayText,
-                    index === 6 && styles.fridayText,
-                  ]}
+                  style={[styles.weekDayText, index === 6 && styles.fridayText]}
                 >
                   {day}
                 </CustomText>
@@ -290,31 +395,126 @@ export default function JalaliDatePicker({
                     </Pressable>
                   </View>
                 );
-              }
+              },
             )}
           </View>
         </Animated.View>
         {isYearMenuOpen && (
-          <View style={[styles.dropdownListPortal, { top: modalLayout.y + selectsLayout.y + yearDropdownLayout.y + yearDropdownLayout.height + 4, left: modalLayout.x + selectsLayout.x + yearDropdownLayout.x, width: yearDropdownLayout.width }]}>
-            <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled keyboardShouldPersistTaps={'always'} showsVerticalScrollIndicator removeClippedSubviews={false}>
+          <Animated.View
+            style={[
+              styles.dropdownListPortal,
+              {
+                opacity: yearDropdownAnim,
+                transform: [{
+                  translateY: yearDropdownAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-8, 0],
+                  }),
+                }],
+              },
+              {
+                top:
+                  modalLayout.y +
+                  selectsLayout.y +
+                  yearDropdownLayout.y +
+                  yearDropdownLayout.height +
+                  4,
+                left: modalLayout.x + selectsLayout.x + yearDropdownLayout.x,
+                width: yearDropdownLayout.width,
+              },
+            ]}
+          >
+            <ScrollView
+              ref={yearScrollRef}
+              style={styles.dropdownScrollView}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps={"always"}
+              showsVerticalScrollIndicator={false}
+              removeClippedSubviews={false}
+            >
               {YEARS.map((year) => (
-                <Pressable key={year} style={styles.dropdownItem} onPress={() => { setPickerYear(year); setIsYearMenuOpen(false); }}>
-                  <CustomText style={styles.dropdownItemText}>{toPersianDigits(year)}</CustomText>
+                <Pressable
+                  key={year}
+                  style={[
+                    styles.dropdownItem,
+                    year === pickerYear && styles.dropdownItemSelected,
+                  ]}
+                  onPress={() => {
+                    setPickerYear(year);
+                    setIsYearMenuOpen(false);
+                  }}
+                >
+                  <CustomText
+                    style={[
+                      styles.dropdownItemText,
+                      year === pickerYear && styles.dropdownItemTextSelected,
+                    ]}
+                  >
+                    {toPersianDigits(year)}
+                  </CustomText>
                 </Pressable>
               ))}
             </ScrollView>
-          </View>
+          </Animated.View>
         )}
         {isMonthMenuOpen && (
-          <View style={[styles.dropdownListPortal, { top: modalLayout.y + selectsLayout.y + monthDropdownLayout.y + monthDropdownLayout.height + 4, left: modalLayout.x + selectsLayout.x + monthDropdownLayout.x, width: monthDropdownLayout.width }]}>
-            <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled keyboardShouldPersistTaps={'always'} showsVerticalScrollIndicator removeClippedSubviews={false}>
+          <Animated.View
+            style={[
+              styles.dropdownListPortal,
+              {
+                opacity: monthDropdownAnim,
+                transform: [{
+                  translateY: monthDropdownAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-8, 0],
+                  }),
+                }],
+              },
+              {
+                top:
+                  modalLayout.y +
+                  selectsLayout.y +
+                  monthDropdownLayout.y +
+                  monthDropdownLayout.height +
+                  4,
+                left: modalLayout.x + selectsLayout.x + monthDropdownLayout.x,
+                width: monthDropdownLayout.width,
+              },
+            ]}
+          >
+            <ScrollView
+              ref={monthScrollRef}
+              style={styles.dropdownScrollView}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps={"always"}
+             showsVerticalScrollIndicator={false}
+              removeClippedSubviews={false}
+            >
               {PERSIAN_MONTHS.map((month, index) => (
-                <Pressable key={month} style={styles.dropdownItem} onPress={() => { setPickerMonth(index + 1); setIsMonthMenuOpen(false); }}>
-                  <CustomText style={styles.dropdownItemText}>{month}</CustomText>
+                <Pressable
+                  key={month}
+                  style={[
+                    styles.dropdownItem,
+                    index + 1 === pickerMonth && styles.dropdownItemSelected,
+                  ]}
+                  onPress={() => {
+                    setPickerMonth(index + 1);
+                    setIsMonthMenuOpen(false);
+                  }}
+                >
+                  <CustomText
+                    style={[
+                      styles.dropdownItemText,
+                      index + 1 === pickerMonth &&
+                        styles.dropdownItemTextSelected,
+                    ]}
+                  >
+                    {month}
+                  </CustomText>
                 </Pressable>
               ))}
             </ScrollView>
-          </View>
+          </Animated.View>
         )}
       </View>
     </Modal>
@@ -402,25 +602,33 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   dropdownListPortal: {
-    position: 'absolute',
+    position: "absolute",
     height: 200,
-    backgroundColor: '#0f4c75',
+    backgroundColor: "#0f4c75",
     borderWidth: 1,
-    borderColor: '#71a9cf',
+    borderColor: "#71a9cf",
     borderRadius: 12,
     elevation: 50,
-    overflow: 'hidden',
+    overflow: "hidden",
     zIndex: 50,
   },
   dropdownScrollView: {
     flex: 1,
   },
   dropdownItem: {
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     alignItems: "stretch",
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(113,169,207,0.3)",
+  },
+  dropdownItemSelected: {
+    backgroundColor: "#059669",
+    borderRadius: 8,
+  },
+  dropdownItemTextSelected: {
+    color: "#ffffff",
+    fontWeight: "900",
   },
   dropdownItemText: {
     color: "#ffffff",

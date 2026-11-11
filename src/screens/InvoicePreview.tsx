@@ -264,7 +264,15 @@ export default function InvoicePreview({
                     ? 0
                     : parseNumber(row.unitPrice) || 0;
                   return (
-                    <View key={row.id ?? idx} style={styles.previewTableRow}>
+                    <View
+                      key={row.id ?? idx}
+                      style={[
+                        styles.previewTableRow,
+                        idx % 2 === 0
+                          ? styles.previewTableRowEven
+                          : styles.previewTableRowOdd,
+                      ]}
+                    >
                       <Text style={[styles.previewTd, styles.colIndex]}>
                         {toPersianDigits(idx + 1)}
                       </Text>
@@ -532,10 +540,15 @@ const styles = StyleSheet.create({
   },
   previewTableRow: {
     flexDirection: "row-reverse",
-    backgroundColor: "rgba(255,255,255,0.75)",
     borderBottomWidth: 1.2,
-    borderBottomColor: "#a2c8e2",
-    minHeight: 42,
+    borderBottomColor: "#c3d5e2",
+    minHeight: 50,
+  },
+  previewTableRowEven: {
+    backgroundColor: "#eef5fa",
+  },
+  previewTableRowOdd: {
+    backgroundColor: "#ffffff",
   },
   previewTh: {
     fontFamily: "Vazirmatn",
@@ -556,7 +569,8 @@ const styles = StyleSheet.create({
     color: "#2d2a24",
     textAlign: "center",
     textAlignVertical: "center",
-    padding: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     borderLeftWidth: 1.2,
     borderLeftColor: "#a2c8e2",
   },
