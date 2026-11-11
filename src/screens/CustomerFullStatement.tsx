@@ -355,7 +355,7 @@ export default function CustomerFullStatement({
           colors={["#22628e", "#2f77a7"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.filterBar, { direction: "ltr" }]}
+          style={styles.filterBar}
         >
           <View style={styles.tabsRow}>
             <TouchableOpacity
@@ -1152,7 +1152,6 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.53)",
-    direction: "rtl",
   },
   modalTitle: {
     color: "#ffffff",
