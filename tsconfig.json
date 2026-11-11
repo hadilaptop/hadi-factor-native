@@ -2,8 +2,6 @@
   "compilerOptions": {},
   "extends": "expo/tsconfig.base",
   "exclude": [
-    "src/main.tsx",
-    "src/index.css",
     "src/expo-linear-gradient.ts",
     "src/services/invoicePrinter.ts"
   ]
