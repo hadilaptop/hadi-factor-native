@@ -60,7 +60,7 @@ export default function ExportAlertModal({
         Animated.timing(scale, {
           toValue: 1,
           duration: 400,
-          easing: Easing.bezier(0.175, 0.885, 0.32, 1.275),
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start();
