@@ -8,7 +8,6 @@ import {
   Image,
   StyleSheet,
   ScrollView,
-  Alert,
   Pressable,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -17,6 +16,7 @@ import Reanimated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Path, Polyline } from "react-native-svg";
 import Header from "../components/Header";
+import ExportAlertModal from "../components/ExportAlertModal";
 import CustomText from "../components/CustomText";
 import ActionDropdown from "../components/ActionDropdown";
 import PaymentComponent from "../components/PaymentComponent";
@@ -148,6 +148,16 @@ export default function CustomerLedgerScreen({
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<any | null>(null);
+  const [alertModal, setAlertModal] = useState<{
+    title: string;
+    message: string;
+    success?: boolean;
+    error?: boolean;
+    confirm?: boolean;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+  } | null>(null);
 
   // محاسبه لیست تراکنش‌ها با مانده لحظه‌ای
   const transactions = useMemo<any[]>(() => {
@@ -249,8 +259,14 @@ export default function CustomerLedgerScreen({
         await onDeleteInvoice(deleteConfirmItem.originalId);
       }
       setDeleteConfirmItem(null);
+      setAlertModal(null);
     } catch (error) {
-      Alert.alert("خطا", "خطا در حذف آیتم.");
+      setDeleteConfirmItem(null);
+      setAlertModal({
+        title: "خطا",
+        message: "خطا در حذف آیتم.",
+        error: true,
+      });
     }
   };
 
@@ -649,6 +665,14 @@ return (
                         onPress={() => {
                           setOpenMenuId(null);
                           setDeleteConfirmItem(item);
+                          setAlertModal({
+                            title: "تأیید حذف تراکنش",
+                            message: "آیا از حذف این تراکنش مطمئن هستید؟ این عمل قابل بازگشت نیست.",
+                            confirm: true,
+                            confirmText: "بله، حذف شود",
+                            cancelText: "انصراف",
+                            onConfirm: handleConfirmDelete,
+                          });
                         }}
                       >
                         <Ionicons
@@ -742,41 +766,21 @@ return (
         </View>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal visible={!!deleteConfirmItem} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <LinearGradient
-            colors={["#0d2b43", "#0f4c75"]}
-            style={styles.confirmBox}
-          >
-            <View style={styles.confirmIconBg}>
-              <Ionicons name="trash-outline" size={32} color="#ff5c5c" />
-            </View>
-            <CustomText style={styles.confirmTitle}>
-              تایید حذف تراکنش
-            </CustomText>
-            <CustomText style={styles.confirmText}>
-              آیا از حذف این تراکنش مطمئن هستید؟ این عمل قابل بازگشت نیست.
-            </CustomText>
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => setDeleteConfirmItem(null)}
-              >
-                <CustomText style={styles.cancelBtnText}>انصراف</CustomText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.dangerBtn]}
-                onPress={handleConfirmDelete}
-              >
-                <CustomText style={styles.dangerBtnText}>
-                  بله، حذف شود
-                </CustomText>
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-        </View>
-      </Modal>
+      <ExportAlertModal
+        visible={!!alertModal}
+        title={alertModal?.title ?? ""}
+        message={alertModal?.message ?? ""}
+        success={alertModal?.success}
+        error={alertModal?.error}
+        confirm={alertModal?.confirm}
+        confirmText={alertModal?.confirmText}
+        cancelText={alertModal?.cancelText}
+        onConfirm={alertModal?.onConfirm}
+        onClose={() => {
+          setAlertModal(null);
+          setDeleteConfirmItem(null);
+        }}
+      />
     </View>
   );
 }

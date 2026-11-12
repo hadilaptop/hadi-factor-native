@@ -1,5 +1,5 @@
 import type { ComponentRef } from "react";
-import { Alert, NativeModules, PermissionsAndroid, Platform, View } from "react-native";
+import { NativeModules, PermissionsAndroid, Platform, View } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -13,7 +13,7 @@ type ExportOptions = {
   format: ExportFormat;
   action: ExportAction;
   filename: string;
-  onAlert?: (title: string, message: string, success: boolean) => void;
+  onAlert: (title: string, message: string, success: boolean) => void;
 };
 
 type DocumentExportNativeModule = {
@@ -111,9 +111,6 @@ export async function exportViewFile({
         `فایل در پوشه Download/${EXPORT_FOLDER_NAME} ذخیره شد: ${finalFilename}`,
         true,
       );
-      if (!onAlert) {
-        Alert.alert("ذخیره شد", `فایل در پوشه Download/${EXPORT_FOLDER_NAME} ذخیره شد: ${finalFilename}`);
-      }
       return;
     }
 
@@ -134,16 +131,9 @@ export async function exportViewFile({
       `فایل با موفقیت در پوشه انتخاب‌شده ذخیره شد: ${finalFilename}`,
       true,
     );
-    if (!onAlert) {
-      Alert.alert("ذخیره شد", `فایل با موفقیت در پوشه انتخاب‌شده ذخیره شد: ${finalFilename}`);
-    }
   } catch (error) {
     console.error("File export failed:", error);
     const message = error instanceof Error ? error.message : "ساخت یا ذخیره فایل انجام نشد.";
-    if (onAlert) {
-      onAlert("خطا در خروجی فایل", message, false);
-    } else {
-      Alert.alert("خطا در خروجی فایل", message);
-    }
+    onAlert("خطا در خروجی فایل", message, false);
   }
 }

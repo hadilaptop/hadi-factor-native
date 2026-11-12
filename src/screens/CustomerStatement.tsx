@@ -6,7 +6,6 @@ import {
   Animated,
   ScrollView,
   StyleSheet,
-  Alert,
   Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,7 +23,6 @@ type CustomerStatementScreenProps = {
   invoices?: any[];
   onBack: () => void;
   onNavigate?: (screen: string) => void;
-  onSaveSettlement?: (settlement: any) => Promise<void> | void;
 };
 
 // محاسبه امن جمع هر ردیف فاکتور، حتی وقتی کلیدها یا نوع داده‌ها متفاوت باشند
@@ -59,7 +57,6 @@ export default function CustomerStatementScreen({
   invoices = [],
   onBack,
   onNavigate,
-  onSaveSettlement = async () => {},
 }: CustomerStatementScreenProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -210,32 +207,6 @@ export default function CustomerStatementScreen({
     }
   };
 
-  const handleRegisterSettlement = () => {
-    Alert.alert('ثبت تسویه حساب', 'آیا از ثبت تسویه حساب تا این تاریخ اطمینان دارید؟', [
-      { text: 'انصراف', style: 'cancel' },
-      {
-        text: 'بله، ثبت شود',
-        onPress: async () => {
-          const currentBalance = endBalance;
-          if (currentBalance === 0) {
-            Alert.alert('اطلاع', 'حساب در حال حاضر صفر است و نیازی به تسویه ندارد.');
-            return;
-          }
-          const settlementPayment = {
-            customerId: customer.id,
-            date: getCurrentPersianDate(),
-            amount: currentBalance,
-            method: 'تسویه حساب',
-            note: 'تسویه حساب سیستمی',
-            createdAt: new Date().toISOString(),
-          };
-          await onSaveSettlement(settlementPayment);
-          showToast('تسویه حساب با موفقیت ثبت شد.');
-        },
-      },
-    ]);
-  };
-
   const handleExport = (type: 'png' | 'pdf') => {
     setShowExportModal(null);
     showToast(type === 'pdf' ? 'فایل PDF آماده شد.' : 'تصویر خروجی آماده شد.');
@@ -273,9 +244,6 @@ export default function CustomerStatementScreen({
             />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.tabBtn, styles.settlementBtn]} onPress={handleRegisterSettlement}>
-            <CustomText style={styles.tabBtnText}>ثبت تسویه حساب</CustomText>
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -336,7 +304,6 @@ export default function CustomerStatementScreen({
                   activeOpacity={item.kind === 'invoice' ? 0.7 : 1}
                   style={[
                     styles.tableRow,
-                    item.method === 'تسویه حساب' && styles.settlementRow,
                   ]}
                   onPress={item.kind === 'invoice' ? () => toggleExpand(item.id) : undefined}
                 >
@@ -602,9 +569,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
   },
-  settlementBtn: {
-    backgroundColor: '#10b981',
-  },
   sortBtn: {
     width: 32,
     height: 32,
@@ -669,9 +633,6 @@ const styles = StyleSheet.create({
   },
   startBalanceRow: {
     backgroundColor: '#fffbeb',
-  },
-  settlementRow: {
-    backgroundColor: '#d1fae5',
   },
   finalBalanceRow: {
     backgroundColor: '#dbeafe',

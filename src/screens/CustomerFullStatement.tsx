@@ -506,8 +506,6 @@ export default function CustomerFullStatement({
                           activeOpacity={item.kind === "invoice" ? 0.7 : 1}
                           style={[
                             styles.tableRow,
-                            item.method === "تسویه حساب" &&
-                              styles.settlementRow,
                           ]}
                           onPress={
                             item.kind === "invoice"
@@ -1034,9 +1032,6 @@ const styles = StyleSheet.create({
   },
   startBalanceRow: {
     backgroundColor: "#fffbeb",
-  },
-  settlementRow: {
-    backgroundColor: "#d1fae5",
   },
   finalBalanceRow: {
     backgroundColor: "#dbeafe",

@@ -12,6 +12,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Path, Polyline } from "react-native-svg";
 import CustomText from "./CustomText";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ExportAlertModalProps = {
   visible: boolean;
@@ -40,6 +41,8 @@ export default function ExportAlertModal({
   onConfirm,
   onClose,
 }: ExportAlertModalProps) {
+  const insets = useSafeAreaInsets();
+  const ALERT_TOP = 200;
   const [modalVisible, setModalVisible] = useState(visible);
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.8)).current;
@@ -76,7 +79,7 @@ export default function ExportAlertModal({
       animationType="none"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { paddingTop: insets.top + ALERT_TOP }]}>
         <Animated.View
           pointerEvents="none"
           style={[StyleSheet.absoluteFill, { opacity: overlayOpacity }]}
@@ -177,9 +180,10 @@ export default function ExportAlertModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     alignItems: "center",
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   backdropDim: {
     ...StyleSheet.absoluteFill,

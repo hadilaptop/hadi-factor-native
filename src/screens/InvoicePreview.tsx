@@ -266,12 +266,7 @@ export default function InvoicePreview({
                   return (
                     <View
                       key={row.id ?? idx}
-                      style={[
-                        styles.previewTableRow,
-                        idx % 2 === 0
-                          ? styles.previewTableRowEven
-                          : styles.previewTableRowOdd,
-                      ]}
+                      style={styles.previewTableRow}
                     >
                       <Text style={[styles.previewTd, styles.colIndex]}>
                         {toPersianDigits(idx + 1)}
@@ -543,11 +538,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1.2,
     borderBottomColor: "#c3d5e2",
     minHeight: 50,
-  },
-  previewTableRowEven: {
-    backgroundColor: "#eef5fa",
-  },
-  previewTableRowOdd: {
     backgroundColor: "#ffffff",
   },
   previewTh: {
