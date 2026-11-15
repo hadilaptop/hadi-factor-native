@@ -58,6 +58,10 @@ export default function App() {
     loadCustomers();
   }, []);
 
+  useEffect(() => {
+    console.log('[CUSTOMER DEBUG][App]', customers.length, customers.map((item) => item.id));
+  }, [customers]);
+
   const handleSaveCustomer = async (customer: Customer) => {
     try {
       const success = await saveCustomer(customer);

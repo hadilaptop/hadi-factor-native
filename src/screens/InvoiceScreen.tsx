@@ -3,6 +3,7 @@ import { FlashList } from "@shopify/flash-list";
 import { exportViewFile } from "../services/documentExport";
 import {
   View,
+  ScrollView,
   TouchableOpacity,
   Modal,
   Pressable,
@@ -102,7 +103,7 @@ export default function InvoiceScreen({
   returnScreen = "dashboard",
   customers = [],
 }: any) {
-  const slideAnim = useRef(new Animated.Value(width)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const bottomBarAnim = useRef(new Animated.Value(150)).current;
   const formActionsAnim = useRef(new Animated.Value(-120)).current;
   const previewActionsAnim = useRef(new Animated.Value(-120)).current;
@@ -130,6 +131,7 @@ export default function InvoiceScreen({
   const invoiceCaptureRef = useRef<React.ComponentRef<typeof View>>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const customerDropdownAnimation = useRef(new Animated.Value(0)).current;
   const customerPickerRef = useRef<React.ComponentRef<typeof View>>(null);
   const [customerPickerPosition, setCustomerPickerPosition] = useState({
     top: 0,
@@ -142,16 +144,42 @@ export default function InvoiceScreen({
       setIsCustomerDropdownOpen(false);
       return;
     }
+
+    const windowSize = Dimensions.get("window");
+    setCustomerPickerPosition({
+      top: Math.max(80, Math.min(260, windowSize.height - 300)),
+      left: 16,
+      width: windowSize.width - 32,
+    });
+    customerDropdownAnimation.setValue(0);
+    setIsCustomerDropdownOpen(true);
+
     customerPickerRef.current?.measureInWindow((x, y, pickerWidth, height) => {
+      if (pickerWidth <= 0) return;
       const screenHeight = Dimensions.get("window").height;
       setCustomerPickerPosition({
         top: Math.min(y + height + insets.top + 4, screenHeight - 270),
         left: x,
         width: pickerWidth,
       });
-      setIsCustomerDropdownOpen(true);
     });
   };
+
+  useEffect(() => {
+    if (!isCustomerDropdownOpen) {
+      customerDropdownAnimation.setValue(0);
+      return;
+    }
+
+    const animation = Animated.timing(customerDropdownAnimation, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    });
+    animation.start();
+
+    return () => animation.stop();
+  }, [isCustomerDropdownOpen, customerDropdownAnimation]);
 
   const PROFORMA_DEFAULT_NOTE =
     "به دلیل نوسانات بازار این پیش فاکتور تا زمان دریافت اسناد مالی قابل تغییر قیمت می‌باشد و فروشنده تضمینی در قبال مبلغ ندارد.";
@@ -512,7 +540,7 @@ export default function InvoiceScreen({
           key={step}
           ref={scrollRef}
           scrollEnabled={step === "form"}
-          style={{ flex: 1, transform: [{ translateX: slideAnim }] }}
+          style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -1155,13 +1183,20 @@ export default function InvoiceScreen({
             style={StyleSheet.absoluteFill}
             onPress={() => setIsCustomerDropdownOpen(false)}
           />
-          <View
+          <Animated.View
             style={[
               styles.dropdownModalContent,
               {
                 top: customerPickerPosition.top,
                 left: customerPickerPosition.left,
                 width: customerPickerPosition.width,
+                opacity: customerDropdownAnimation,
+                transform: [{
+                  translateY: customerDropdownAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-8, 0],
+                  }),
+                }],
               },
             ]}
           >
@@ -1171,24 +1206,24 @@ export default function InvoiceScreen({
               end={{ x: 0, y: 1 }}
               style={styles.dropdownList}
             >
-              <FlashList
-                data={[
+              <ScrollView
+                style={styles.dropdownScroll}
+                showsVerticalScrollIndicator
+                keyboardShouldPersistTaps="always"
+              >
+                {[
                   { label: " مشتری جدید ", value: null, customerCode: null },
                   ...customers.map((c: any) => ({
                     label: c.name,
                     customerCode: c.customerCode,
                     value: c.id,
                   })),
-                ]}
-                keyExtractor={(opt: any, index: number) => String(opt.value ?? `new-${index}`)}
-                style={styles.dropdownScroll}
-                showsVerticalScrollIndicator
-                keyboardShouldPersistTaps="always"
-                renderItem={({ item: opt }: any) => {
+                ].map((opt: any, index: number) => {
                   const isSelected =
                     String(opt.value ?? "") === String(selectedCustomerId ?? "");
                   return (
                     <TouchableOpacity
+                      key={String(opt.value ?? `new-${index}`)}
                       style={[
                         styles.dropdownItem,
                         isSelected && styles.dropdownItemSelected,
@@ -1214,10 +1249,10 @@ export default function InvoiceScreen({
                       )}
                     </TouchableOpacity>
                   );
-                }}
-              />
+                })}
+              </ScrollView>
             </LinearGradient>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
       <JalaliDatePicker

@@ -1,154 +1,138 @@
+
+
+import type { Customer } from "../storage/customerStorage";
+import type { StoredInvoice } from "../storage/invoiceStorage";
+import {
+  formatNumber,
+  numberToPersianWords,
+  toPersianDigits,
+} from "../utils/invoiceHelpers";
+
+const escapeHtml = (value: unknown): string =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const toNumber = (value: string | number | undefined): number => {
+  if (value === undefined || value === "") return 0;
+  const normalized = String(value)
+    .replace(/,/g, "")
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 /**
- * @file invoicePrinter.ts
- * @description Native PDF Generation, Printing, and Sharing Service
- * Replaces Capacitor html2canvas + jsPDF with Expo Print (expo-print) & Expo Sharing (expo-sharing).
- * 
- * Benefits over Capacitor:
- * - 100% native vector quality (no pixelation or blurry raster fonts)
- * - Full Persian RTL typography support without broken glyphs
- * - 10x faster rendering (~50ms vs 2-3 seconds for html2canvas)
- * - Direct AirPrint & Bluetooth Thermal printer support
+ * ساخت HTML فاکتور بر اساس مدل فعلی ذخیره‌سازی پروژه.
+ * اطلاعات فروشنده و خریدار از snapshot ذخیره‌شده در خود فاکتور خوانده می‌شود.
  */
-
-import { Invoice, Customer, AppSettings } from '../store/types';
-import { formatNumber, numberToPersianWords, toPersianDigits } from '../utils/invoiceHelpers';
-
 export const generateInvoiceHtml = (
-  invoice: Invoice,
-  customer: Customer | undefined,
-  settings: AppSettings
+  invoice: StoredInvoice,
+  customer?: Customer,
 ): string => {
-  const itemsHtml = invoice.items
-    .map(
-      (item, index) => `
-    <tr>
-      <td style="text-align: center; padding: 8px; border: 1px solid #cbd5e1;">${toPersianDigits(index + 1)}</td>
-      <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: 500;">${item.description}</td>
-      <td style="text-align: center; padding: 8px; border: 1px solid #cbd5e1;">${toPersianDigits(item.quantity)} ${item.unit || 'عدد'}</td>
-      <td style="text-align: left; padding: 8px; border: 1px solid #cbd5e1;">${formatNumber(item.unitPrice)}</td>
-      <td style="text-align: left; padding: 8px; border: 1px solid #cbd5e1; font-weight: 600;">${formatNumber(item.total)}</td>
-    </tr>
-  `
-    )
-    .join('');
+  const itemsHtml = (invoice.items ?? [])
+    .map((item, index) => {
+      const quantity = item.quantity === "" ? 1 : toNumber(item.quantity) || 1;
+      const unitPrice = toNumber(item.unitPrice);
+      const total = quantity * unitPrice;
+
+      return `
+        <tr>
+          <td class="center">${toPersianDigits(index + 1)}</td>
+          <td>${escapeHtml(item.desc)}</td>
+          <td class="center">${toPersianDigits(quantity)}</td>
+          <td class="number">${formatNumber(unitPrice)}</td>
+          <td class="number strong">${formatNumber(total)}</td>
+        </tr>`;
+    })
+    .join("");
+
+  const sellerName = invoice.sellerName ?? "";
+  const sellerPhone = invoice.sellerPhone ?? "";
+  const sellerAddress = invoice.sellerAddress ?? "";
+  const sellerEconomicCode = invoice.sellerEconomicCode ?? "";
+  const buyerName = invoice.buyerName ?? customer?.name ?? "";
+  const buyerPhone = invoice.buyerPhone ?? customer?.phone ?? "";
+  const buyerAddress = invoice.buyerAddress ?? customer?.address ?? "";
+  const buyerEconomicCode =
+    invoice.buyerEconomicCode ?? customer?.economicCode ?? "";
+  const amount = toNumber(invoice.amount);
 
   return `
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     @page { size: A4; margin: 15mm; }
-    body {
-      font-family: 'Tahoma', 'Vazirmatn', sans-serif;
-      direction: rtl;
-      color: #1e293b;
-      margin: 0;
-      padding: 20px;
-      font-size: 13px;
-    }
-    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; border-bottom: 2px solid #2563eb; padding-bottom: 12px; }
+    body { font-family: Tahoma, sans-serif; direction: rtl; color: #1e293b; margin: 0; padding: 20px; font-size: 13px; }
+    .header { width: 100%; border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; }
+    .header td { width: 33%; vertical-align: middle; }
     .title { font-size: 20px; font-weight: bold; color: #1e3a8a; }
     .badge { display: inline-block; padding: 4px 12px; border-radius: 6px; background: #dbeafe; color: #1e40af; font-weight: bold; }
-    .parties-box { display: flex; width: 100%; margin-bottom: 16px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-    .party-col { width: 50%; padding: 12px; background: #f8fafc; }
-    .party-col:first-child { border-left: 1px solid #e2e8f0; }
-    .party-title { font-weight: bold; margin-bottom: 8px; color: #3b82f6; }
-    .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; }
-    .items-table th { background: #f1f5f9; padding: 10px; border: 1px solid #cbd5e1; font-weight: bold; }
-    .summary-box { width: 100%; display: flex; justify-content: flex-end; margin-top: 10px; }
-    .summary-table { width: 350px; border-collapse: collapse; }
-    .summary-table td { padding: 8px; border: 1px solid #e2e8f0; }
-    .total-row { background: #eff6ff; font-weight: bold; font-size: 15px; color: #1d4ed8; }
-    .words-box { margin-top: 12px; padding: 10px; background: #fafaf9; border: 1px dashed #d6d3d1; border-radius: 6px; }
-    .footer-note { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; text-align: center; }
+    .parties { display: flex; width: 100%; margin-bottom: 16px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+    .party { box-sizing: border-box; width: 50%; padding: 12px; background: #f8fafc; line-height: 2; }
+    .party + .party { border-right: 1px solid #e2e8f0; }
+    .party-title { font-weight: bold; margin-bottom: 6px; color: #2563eb; }
+    table.items { width: 100%; border-collapse: collapse; margin: 10px 0 20px; }
+    .items th { background: #f1f5f9; padding: 10px; border: 1px solid #cbd5e1; }
+    .items td { padding: 8px; border: 1px solid #cbd5e1; }
+    .center { text-align: center; }
+    .number { text-align: left; direction: ltr; }
+    .strong { font-weight: bold; }
+    .summary { width: 100%; margin-top: 10px; }
+    .summary td { padding: 8px; border: 1px solid #e2e8f0; }
+    .total { background: #eff6ff; font-weight: bold; font-size: 15px; color: #1d4ed8; }
+    .words { margin-top: 12px; padding: 10px; background: #fafaf9; border: 1px dashed #d6d3d1; border-radius: 6px; }
+    .note { margin-top: 12px; line-height: 2; }
+    .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; text-align: center; }
   </style>
 </head>
 <body>
-  <table class="header-table">
+  <table class="header">
     <tr>
-      <td style="width: 33%;">
-        <div class="title">${settings.companyName}</div>
-        <div style="color: #64748b; font-size: 11px; margin-top: 4px;">تلفن: ${toPersianDigits(settings.companyPhone)}</div>
-      </td>
-      <td style="width: 33%; text-align: center;">
-        <span class="badge">${invoice.type}</span>
-      </td>
-      <td style="width: 33%; text-align: left;">
-        <div><strong>شماره فاکتور:</strong> ${toPersianDigits(invoice.number)}</div>
-        <div style="margin-top: 4px;"><strong>تاریخ:</strong> ${toPersianDigits(invoice.date)}</div>
-      </td>
+      <td><div class="title">${escapeHtml(sellerName)}</div><div>تلفن: ${toPersianDigits(escapeHtml(sellerPhone))}</div></td>
+      <td class="center"><span class="badge">${escapeHtml(invoice.type)}</span></td>
+      <td style="text-align:left"><div><strong>شماره فاکتور:</strong> ${toPersianDigits(escapeHtml(invoice.number))}</div><div>تاریخ: ${toPersianDigits(escapeHtml(invoice.date))}</div></td>
     </tr>
   </table>
 
-  <div class="parties-box">
-    <div class="party-col">
+  <div class="parties">
+    <div class="party">
       <div class="party-title">فروشنده</div>
-      <div>${settings.companyName}</div>
-      <div>کد اقتصادی: ${toPersianDigits(settings.companyEconomicCode || '-')}</div>
-      <div>نشانی: ${settings.companyAddress}</div>
+      <div>${escapeHtml(sellerName)}</div>
+      <div>کد اقتصادی: ${toPersianDigits(escapeHtml(sellerEconomicCode || "-"))}</div>
+      <div>نشانی: ${escapeHtml(sellerAddress || "-")}</div>
     </div>
-    <div class="party-col">
+    <div class="party">
       <div class="party-title">خریدار</div>
-      <div>${customer?.name || invoice.customerName || '-'}</div>
-      <div>شماره تماس: ${toPersianDigits(customer?.phone || '-')}</div>
-      <div>کد اقتصادی / ملی: ${toPersianDigits(customer?.economicCode || '-')}</div>
-      <div>نشانی: ${customer?.address || '-'}</div>
+      <div>${escapeHtml(buyerName || "-")}</div>
+      <div>شماره تماس: ${toPersianDigits(escapeHtml(buyerPhone || "-"))}</div>
+      <div>کد اقتصادی / ملی: ${toPersianDigits(escapeHtml(buyerEconomicCode || "-"))}</div>
+      <div>نشانی: ${escapeHtml(buyerAddress || "-")}</div>
     </div>
   </div>
 
-  <table class="items-table">
-    <thead>
-      <tr>
-        <th style="width: 40px;">ردیف</th>
-        <th>شرح کالا / خدمات</th>
-        <th style="width: 90px;">تعداد / مقدار</th>
-        <th style="width: 120px;">قیمت واحد (ریال)</th>
-        <th style="width: 140px;">مبلغ کل (ریال)</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${itemsHtml}
-    </tbody>
+  <table class="items">
+    <thead><tr>
+      <th style="width:40px">ردیف</th><th>شرح کالا / خدمات</th>
+      <th style="width:90px">تعداد / مقدار</th><th style="width:120px">قیمت واحد (ریال)</th>
+      <th style="width:140px">مبلغ کل (ریال)</th>
+    </tr></thead>
+    <tbody>${itemsHtml}</tbody>
   </table>
 
-  <div class="summary-box">
-    <table class="summary-table">
-      <tr>
-        <td>جمع اقلام:</td>
-        <td style="text-align: left;">${formatNumber(invoice.amount)} ریال</td>
-      </tr>
-      ${
-        invoice.discount
-          ? `<tr><td>تخفیف:</td><td style="text-align: left; color: #dc2626;">${formatNumber(invoice.discount)} ریال</td></tr>`
-          : ''
-      }
-      ${
-        invoice.tax
-          ? `<tr><td>مالیات بر ارزش افزوده:</td><td style="text-align: left;">${formatNumber(invoice.tax)} ریال</td></tr>`
-          : ''
-      }
-      <tr class="total-row">
-        <td>مبلغ نهایی و قابل پرداخت:</td>
-        <td style="text-align: left;">${formatNumber(invoice.finalAmount || invoice.amount)} ریال</td>
-      </tr>
-    </table>
-  </div>
-
-  <div class="words-box">
-    <strong>مبلغ به حروف:</strong> ${numberToPersianWords(invoice.finalAmount || invoice.amount)}
-  </div>
-
-  ${
-    invoice.note
-      ? `<div style="margin-top: 12px;"><strong>توضیحات:</strong> ${invoice.note}</div>`
-      : ''
-  }
-
-  <div class="footer-note">
-    ${settings.invoiceFooter}
-  </div>
+  <table class="summary">
+    <tr class="total"><td>مبلغ نهایی و قابل پرداخت:</td><td class="number">${formatNumber(amount)} ریال</td></tr>
+  </table>
+  <div class="words"><strong>مبلغ به حروف:</strong> ${numberToPersianWords(amount)}</div>
+  ${invoice.note ? `<div class="note"><strong>توضیحات:</strong> ${escapeHtml(invoice.note)}</div>` : ""}
+  <div class="footer">${escapeHtml(sellerPhone)}</div>
 </body>
-</html>
-  `.trim();
+</html>`.trim();
 };

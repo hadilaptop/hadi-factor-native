@@ -3,6 +3,8 @@ import { FlashList } from "@shopify/flash-list";
 import {
   ActivityIndicator,
   Animated,
+  ScrollView,
+  Dimensions,
   Modal,
   Pressable,
   StyleSheet,
@@ -68,10 +70,19 @@ export default function CustomerPayment({
       setCustomerPickerVisible(false);
       return;
     }
-    customerPickerRef.current?.measureInWindow((x, y, width, height) => {
-      setCustomerPickerPosition({ top: y + height + 35, left: x, width });
-      dropdownAnimation.setValue(0);
-      setCustomerPickerVisible(true);
+
+    const windowSize = Dimensions.get("window");
+    setCustomerPickerPosition({
+      top: Math.max(80, Math.min(260, windowSize.height - 300)),
+      left: 16,
+      width: windowSize.width - 32,
+    });
+    dropdownAnimation.setValue(0);
+    setCustomerPickerVisible(true);
+
+    customerPickerRef.current?.measureInWindow((x, y, pickerWidth, height) => {
+      if (pickerWidth <= 0) return;
+      setCustomerPickerPosition({ top: y + height + 35, left: x, width: pickerWidth });
     });
   };
   const [paymentAmount, setPaymentAmount] = useState(
@@ -358,41 +369,42 @@ export default function CustomerPayment({
               end={{ x: 0, y: 1 }}
               style={styles.dropdownList}
             >
-              <FlashList
-                data={customers}
-                keyExtractor={(item) => String(item.id)}
+              <ScrollView
                 style={styles.dropdownScroll}
                 showsVerticalScrollIndicator
                 keyboardShouldPersistTaps="always"
-                ListEmptyComponent={
+              >
+                {customers.length === 0 ? (
                   <CustomText style={styles.emptyCustomers}>
                     هنوز مشتری‌ای ثبت نشده است.
                   </CustomText>
-                }
-                renderItem={({ item }) => {
-                  const isSelected = String(item.id) === String(selectedCustomerId);
-                  return (
-                    <TouchableOpacity
-                      style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
-                      onPress={() => {
-                        setSelectedCustomerId(item.id);
-                        setCustomerPickerVisible(false);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <CustomText style={styles.dropdownItemText} numberOfLines={2}>
-                        {item.name}
-                      </CustomText>
-                      {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
-                      {item.customerCode != null && (
-                        <CustomText style={styles.dropdownCodeText}>
-                          {toPersianDigits(String(item.customerCode))}
+                ) : (
+                  customers.map((item) => {
+                    const isSelected = String(item.id) === String(selectedCustomerId);
+                    return (
+                      <TouchableOpacity
+                        key={String(item.id)}
+                        style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
+                        onPress={() => {
+                          setSelectedCustomerId(item.id);
+                          setCustomerPickerVisible(false);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <CustomText style={styles.dropdownItemText} numberOfLines={2}>
+                          {item.name}
                         </CustomText>
-                      )}
-                    </TouchableOpacity>
-                  );
-                }}
-              />
+                        {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
+                        {item.customerCode != null && (
+                          <CustomText style={styles.dropdownCodeText}>
+                            {toPersianDigits(String(item.customerCode))}
+                          </CustomText>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </ScrollView>
             </LinearGradient>
           </Animated.View>
         </View>

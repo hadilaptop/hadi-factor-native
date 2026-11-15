@@ -1,20 +1,15 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { FlashList } from '@shopify/flash-list';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Image,
   StyleSheet,
   TouchableOpacity,
-    Pressable,
-Modal,
-  Animated,
   Dimensions,
+  ScrollView,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import AnimatedScrollWrapper, {
-  AnimatedScrollWrapperRef,
-} from '../components/AnimatedScrollWrapper';
 import Header from '../components/Header';
 import { toPersianDigits } from '../utils/numberUtils';
 import CustomText from '../components/CustomText';
@@ -31,6 +26,17 @@ type CustomersScreenProps = {
   onSelectCustomerLedger?: (customer: Customer) => void;
 };
 
+const { width: screenWidth } = Dimensions.get('window');
+
+const customerGradientPalettes: { colors: [string, string]; start: { x: number; y: number }; end: { x: number; y: number } }[] = [
+  { colors: ['#1c629c', '#2d78a9'], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+  { colors: ['#1f6491', '#1c629c'], start: { x: 0, y: 0 }, end: { x: 0, y: 1 } },
+  { colors: ['#2674af', '#1b5c87'], start: { x: 1, y: 0 }, end: { x: 0, y: 1 } },
+  { colors: ['#286d9c', '#236da5'], start: { x: 0, y: 1 }, end: { x: 1, y: 0 } },
+  { colors: ['#246b9f', '#28638a'], start: { x: 1, y: 0 }, end: { x: 0, y: 0 } },
+  { colors: ['#155d8e', '#2975ac'], start: { x: 0, y: 0 }, end: { x: 1, y: 0 } },
+];
+
 export default function CustomersScreen({
   onNavigate = (screen: string) => {},
   customers = [],
@@ -38,8 +44,6 @@ export default function CustomersScreen({
   onEditCustomer = (customer: Customer) => {},
   onSelectCustomerLedger = (customer: Customer) => {},
 }: CustomersScreenProps) {
-  const searchRef = useRef<AnimatedScrollWrapperRef>(null);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [activeDropdown, setActiveDropdown] = useState<string | number | null>(
     null
@@ -47,6 +51,7 @@ export default function CustomersScreen({
   const [deleteModalData, setDeleteModalData] = useState<Customer | null>(null);
   const actionButtonRefs = useRef<Record<string, React.ComponentRef<typeof TouchableOpacity> | null>>({});
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 8 });
+  const screenSlideAnim = useRef(new Animated.Value(screenWidth)).current;
 
   const filteredCustomers = useMemo(() => {
     if (!searchQuery.trim()) return customers;
@@ -60,14 +65,20 @@ export default function CustomersScreen({
     );
   }, [customers, searchQuery]);
 
-  const slideAnim = useRef(
-    new Animated.Value(Dimensions.get('window').width)
-  ).current;
+  useEffect(() => {
+    Animated.timing(screenSlideAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [screenSlideAnim]);
+
+  useEffect(() => {
+    console.log('[CUSTOMER DEBUG][CustomersScreen]', customers.length, filteredCustomers.length, customers.map((item) => item.id));
+  }, [customers, filteredCustomers]);
 
   const handleClose = () => {
-    searchRef.current?.close();
-      onNavigate('dashboard');
-
+    onNavigate('dashboard');
   };
 
   const confirmDelete = () => {
@@ -85,61 +96,47 @@ export default function CustomersScreen({
         onBack={handleClose}
         iconName="arrow-back"
       />
-      <AnimatedScrollWrapper
-        ref={searchRef}
+      <Animated.View
         style={[
-          styles.searchContainer,
-          {
-            transform: [{ translateX: slideAnim }],
-          },
+          styles.animatedContent,
+          { transform: [{ translateX: screenSlideAnim }] },
         ]}
       >
-        <View style={styles.searchWrapper}>
-          {searchQuery.length > 0 ? (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              style={styles.iconWrapper}
-            >
-              <View style={styles.clearBtn}>
-                <Ionicons name="close" size={16} color="#1f5579" />
+        <View style={styles.searchContainer}>
+          <View style={styles.searchWrapper}>
+            {searchQuery.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                style={styles.iconWrapper}
+              >
+                <View style={styles.clearBtn}>
+                  <Ionicons name="close" size={16} color="#1f5579" />
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.iconWrapper}>
+                <Ionicons name="search" size={20} color="#1f5579" />
               </View>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.iconWrapper}>
-              <Ionicons name="search" size={20} color="#1f5579" />
-            </View>
-          )}
-          <CustomTextInput
-            style={styles.searchInput}
-            placeholder="جستجوی نام یا شماره مشتری..."
-            placeholderTextColor="#8da4b5"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            disableFocusStyle={true}
-          />
+            )}
+            <CustomTextInput
+              style={styles.searchInput}
+              placeholder="جستجوی نام یا شماره مشتری..."
+              placeholderTextColor="#8da4b5"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              disableFocusStyle={true}
+            />
+          </View>
         </View>
-      </AnimatedScrollWrapper>
 
-<Animated.View
-        style={{
-          flex: 1,
-          transform: [{ translateX: slideAnim }],
-        }}
-      >
-        <FlashList
-          data={filteredCustomers}
-          keyExtractor={(customer) => String(customer.id)}
+        <ScrollView
+          style={styles.customerList}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <CustomText style={styles.emptyText}>
-              {searchQuery.trim()
-                ? ' مشتری با این مشخصات یافت نشد. '
-                : 'هنوز مشتری ثبت نشده است.'}
-            </CustomText>
-          }
-          renderItem={({ item: customer, index }) => (
-            <View style={[styles.customerCardWrapper, activeDropdown === customer.id && styles.customerCardWrapperActive]}>
+          keyboardShouldPersistTaps="handled"
+        >
+          {filteredCustomers.map((customer, index) => (
+            <View key={String(customer.id)} style={styles.customerCardWrapper}>
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={styles.customerCard}
@@ -152,9 +149,9 @@ export default function CustomersScreen({
                 }}
               >
                 <LinearGradient
-                  colors={['#22628e', '#2f77a7']}
-                  start={index % 3 === 0 ? { x: 0, y: 0 } : index % 3 === 1 ? { x: 1, y: 0 } : { x: 0, y: 1 }}
-                  end={index % 3 === 0 ? { x: 1, y: 1 } : index % 3 === 1 ? { x: 0, y: 1 } : { x: 1, y: 0 }}
+                  colors={customerGradientPalettes[index % customerGradientPalettes.length].colors}
+                  start={customerGradientPalettes[index % customerGradientPalettes.length].start}
+                  end={customerGradientPalettes[index % customerGradientPalettes.length].end}
                   style={styles.cardGradient}
                 >
                   <View style={styles.avatar}>
@@ -165,7 +162,7 @@ export default function CustomersScreen({
                     )}
                   </View>
                   <View style={styles.info}>
-                    <CustomText style={styles.name}>{customer.name}</CustomText>
+                    <CustomText style={styles.name}>{customer.name || 'بدون نام'}</CustomText>
                     <CustomText style={styles.code}>
                       کد مشتری: {toPersianDigits(customer.customerCode ?? customer.id)}
                     </CustomText>
@@ -193,8 +190,15 @@ export default function CustomersScreen({
                 </LinearGradient>
               </TouchableOpacity>
             </View>
+          ))}
+          {filteredCustomers.length === 0 && (
+            <CustomText style={styles.emptyText}>
+              {searchQuery.trim()
+                ? 'مشتری با این مشخصات یافت نشد.'
+                : 'هنوز مشتری ثبت نشده است.'}
+            </CustomText>
           )}
-        />
+        </ScrollView>
       </Animated.View>
 
       <ActionDropdown
@@ -241,12 +245,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#eaf6fc',
   },
+  animatedContent: {
+    flex: 1,
+  },
   searchContainer: {
-    flexGrow: 0,
     paddingHorizontal: 20,
     marginTop: 15,
     marginBottom: 10,
-    zIndex: 1,
   },
   searchWrapper: {
     flexDirection: 'row',
@@ -257,7 +262,7 @@ const styles = StyleSheet.create({
     borderColor: '#b3d4e6',
     paddingHorizontal: 15,
     height: 50,
-    shadowColor: '#0d2b43',
+    shadowColor: '#2170b1',
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.08,
     shadowRadius: 10,
@@ -272,7 +277,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#0d2b43',
+    color: '#2170b1',
     textAlign: 'right',
   },
   clearBtn: {
@@ -283,17 +288,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  customerList: {
+    flex: 1,
+  },
   listContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 410,
+    paddingTop: 8,
+    paddingBottom: 400,
   },
   customerCardWrapper: {
     position: 'relative',
-    marginBottom: 10,
-  },
-  customerCardWrapperActive: {
-    zIndex: 30,
-    elevation: 30,
+    marginBottom: 12,
   },
   customerCard: {
     width: '100%',
@@ -351,9 +356,6 @@ const styles = StyleSheet.create({
   },
   actionBtnActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
-  },
-  dropdownModalOverlay: {
-    flex: 1,
   },
   dropdownMenu: {
     position: 'absolute',

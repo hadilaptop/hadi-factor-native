@@ -439,12 +439,15 @@ return (
       )}
 
       {/* Transactions List */}
+      <Animated.View
+        style={{ flex: 1, transform: [{ translateX: listSlideAnim }] }}
+      >
       <FlashList
         data={filteredTransactions}
         keyExtractor={(item: any) => `${activeTab}-${item.id}`}
         extraData={{ activeTab, expandedItems, openMenuId, menuPosition, selectedImage }}
         removeClippedSubviews={false}
-        style={[styles.listContainer, { transform: [{ translateX: listSlideAnim }] }]}
+        style={styles.listContainer}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
@@ -724,6 +727,7 @@ return (
             );
         }}
       />
+      </Animated.View>
 
       {/* Floating Statement Circular Button */}
       <Animated.View
