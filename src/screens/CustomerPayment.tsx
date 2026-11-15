@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
   ActivityIndicator,
   Animated,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -358,17 +358,21 @@ export default function CustomerPayment({
               end={{ x: 0, y: 1 }}
               style={styles.dropdownList}
             >
-              <ScrollView
+              <FlashList
+                data={customers}
+                keyExtractor={(item) => String(item.id)}
                 style={styles.dropdownScroll}
                 showsVerticalScrollIndicator
-                nestedScrollEnabled
                 keyboardShouldPersistTaps="always"
-              >
-                {customers.map((item) => {
+                ListEmptyComponent={
+                  <CustomText style={styles.emptyCustomers}>
+                    هنوز مشتری‌ای ثبت نشده است.
+                  </CustomText>
+                }
+                renderItem={({ item }) => {
                   const isSelected = String(item.id) === String(selectedCustomerId);
                   return (
                     <TouchableOpacity
-                      key={String(item.id)}
                       style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
                       onPress={() => {
                         setSelectedCustomerId(item.id);
@@ -387,13 +391,8 @@ export default function CustomerPayment({
                       )}
                     </TouchableOpacity>
                   );
-                })}
-                {customers.length === 0 && (
-                  <CustomText style={styles.emptyCustomers}>
-                    هنوز مشتری‌ای ثبت نشده است.
-                  </CustomText>
-                )}
-              </ScrollView>
+                }}
+              />
             </LinearGradient>
           </Animated.View>
         </View>

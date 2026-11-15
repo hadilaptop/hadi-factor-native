@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { FlashList } from "@shopify/flash-list";
 import { exportViewFile } from "../services/documentExport";
 import {
   View,
@@ -11,7 +12,6 @@ import {
   Platform,
   ActivityIndicator,
   KeyboardAvoidingView,
-  ScrollView,
 } from "react-native";
 import {
   toPersianDigits,
@@ -1171,26 +1171,24 @@ export default function InvoiceScreen({
               end={{ x: 0, y: 1 }}
               style={styles.dropdownList}
             >
-              <ScrollView
-                style={styles.dropdownScroll}
-                showsVerticalScrollIndicator
-                nestedScrollEnabled
-                keyboardShouldPersistTaps="always"
-              >
-                {[
+              <FlashList
+                data={[
                   { label: " مشتری جدید ", value: null, customerCode: null },
                   ...customers.map((c: any) => ({
                     label: c.name,
                     customerCode: c.customerCode,
                     value: c.id,
                   })),
-                ].map((opt: any, index: number) => {
+                ]}
+                keyExtractor={(opt: any, index: number) => String(opt.value ?? `new-${index}`)}
+                style={styles.dropdownScroll}
+                showsVerticalScrollIndicator
+                keyboardShouldPersistTaps="always"
+                renderItem={({ item: opt }: any) => {
                   const isSelected =
-                    String(opt.value ?? "") ===
-                    String(selectedCustomerId ?? "");
+                    String(opt.value ?? "") === String(selectedCustomerId ?? "");
                   return (
                     <TouchableOpacity
-                      key={String(opt.value ?? `new-${index}`)}
                       style={[
                         styles.dropdownItem,
                         isSelected && styles.dropdownItemSelected,
@@ -1203,10 +1201,7 @@ export default function InvoiceScreen({
                       }}
                       activeOpacity={0.8}
                     >
-                      <CustomText
-                        style={styles.dropdownItemText}
-                        numberOfLines={2}
-                      >
+                      <CustomText style={styles.dropdownItemText} numberOfLines={2}>
                         {opt.label}
                       </CustomText>
                       {isSelected && (
@@ -1219,8 +1214,8 @@ export default function InvoiceScreen({
                       )}
                     </TouchableOpacity>
                   );
-                })}
-              </ScrollView>
+                }}
+              />
             </LinearGradient>
           </View>
         </View>

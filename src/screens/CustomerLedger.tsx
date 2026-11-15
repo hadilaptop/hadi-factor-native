@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
   View,
   Animated,
@@ -438,19 +439,21 @@ return (
       )}
 
       {/* Transactions List */}
-      <Animated.ScrollView
+      <FlashList
+        data={filteredTransactions}
+        keyExtractor={(item: any) => `${activeTab}-${item.id}`}
+        extraData={{ activeTab, expandedItems, openMenuId, menuPosition, selectedImage }}
         removeClippedSubviews={false}
         style={[styles.listContainer, { transform: [{ translateX: listSlideAnim }] }]}
         contentContainerStyle={styles.listContent}
-      >
-        {filteredTransactions.length === 0 ? (
+        ListEmptyComponent={
           <View style={styles.emptyBox}>
             <CustomText style={styles.emptyText}>
               هیچ تراکنشی برای این مشتری یافت نشد.
             </CustomText>
           </View>
-        ) : (
-          filteredTransactions.map((item, index) => {
+        }
+        renderItem={({ item, index }: any) => {
             const isInvoice = item.kind === "invoice";
             const isProforma = isInvoice && item.type === "پیش فاکتور";
             const isPayment = item.kind === "payment";
@@ -459,7 +462,6 @@ return (
 
             return (
               <Reanimated.View
-                key={`${activeTab}-${item.id}`}
                 entering={
                   hasInteractedWithLedger.current
                     ? FadeInDown.duration(220)
@@ -720,9 +722,8 @@ return (
               </LinearGradient>
               </Reanimated.View>
             );
-          })
-        )}
-      </Animated.ScrollView>
+        }}
+      />
 
       {/* Floating Statement Circular Button */}
       <Animated.View

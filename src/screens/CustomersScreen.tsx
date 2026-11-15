@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import {
   View,
   Image,
@@ -38,7 +39,6 @@ export default function CustomersScreen({
   onSelectCustomerLedger = (customer: Customer) => {},
 }: CustomersScreenProps) {
   const searchRef = useRef<AnimatedScrollWrapperRef>(null);
-  const scrollRef = useRef<AnimatedScrollWrapperRef>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeDropdown, setActiveDropdown] = useState<string | number | null>(
@@ -120,18 +120,26 @@ export default function CustomersScreen({
         </View>
       </AnimatedScrollWrapper>
 
-<AnimatedScrollWrapper
-        ref={scrollRef}
+<Animated.View
         style={{
           flex: 1,
           transform: [{ translateX: slideAnim }],
         }}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
       >
-        {filteredCustomers.length > 0 ? (
-          filteredCustomers.map((customer, index) => (
-            <View key={customer.id} style={[styles.customerCardWrapper, activeDropdown === customer.id && styles.customerCardWrapperActive]}>
+        <FlashList
+          data={filteredCustomers}
+          keyExtractor={(customer) => String(customer.id)}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <CustomText style={styles.emptyText}>
+              {searchQuery.trim()
+                ? ' مشتری با این مشخصات یافت نشد. '
+                : 'هنوز مشتری ثبت نشده است.'}
+            </CustomText>
+          }
+          renderItem={({ item: customer, index }) => (
+            <View style={[styles.customerCardWrapper, activeDropdown === customer.id && styles.customerCardWrapperActive]}>
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={styles.customerCard}
@@ -151,24 +159,17 @@ export default function CustomersScreen({
                 >
                   <View style={styles.avatar}>
                     {customer.avatar ? (
-                      <Image
-                        source={{ uri: customer.avatar }}
-                        style={styles.avatarImage}
-                      />
+                      <Image source={{ uri: customer.avatar }} style={styles.avatarImage} />
                     ) : (
                       <Ionicons name="person" size={20} color="#b3d4e6" />
                     )}
                   </View>
-
                   <View style={styles.info}>
-                    <CustomText style={styles.name}>
-                      {customer.name}
-                    </CustomText>
+                    <CustomText style={styles.name}>{customer.name}</CustomText>
                     <CustomText style={styles.code}>
                       کد مشتری: {toPersianDigits(customer.customerCode ?? customer.id)}
                     </CustomText>
                   </View>
-
                   <TouchableOpacity
                     style={[
                       styles.actionBtn,
@@ -187,24 +188,14 @@ export default function CustomersScreen({
                       });
                     }}
                   >
-                    <Ionicons
-                      name="ellipsis-vertical"
-                      size={25}
-                      color="#ffffffe1"
-                    />
+                    <Ionicons name="ellipsis-vertical" size={25} color="#ffffffe1" />
                   </TouchableOpacity>
                 </LinearGradient>
               </TouchableOpacity>
-</View>
-          ))
-        ) : (
-          <CustomText style={styles.emptyText}>
-            {searchQuery.trim()
-              ? ' مشتری با این مشخصات یافت نشد. '
-              : 'هنوز مشتری ثبت نشده است.'}
-          </CustomText>
-        )}
-      </AnimatedScrollWrapper>
+            </View>
+          )}
+        />
+      </Animated.View>
 
       <ActionDropdown
         visible={activeDropdown !== null}

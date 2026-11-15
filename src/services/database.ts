@@ -1,5 +1,6 @@
 import * as SQLite from "expo-sqlite";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system/legacy";
 
 type EntityTable = "customers" | "invoices" | "payments";
 
@@ -148,26 +149,69 @@ class NativeDatabaseService {
     });
   }
 
+  private async persistImage(image?: string | null): Promise<string | null | undefined> {
+    if (!image?.startsWith("data:image/")) return image;
+
+    const match = image.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,([\s\S]+)$/);
+    if (!match || !FileSystem.documentDirectory) {
+      throw new Error("ذخیره فایل تصویر در حافظه محلی امکان‌پذیر نیست.");
+    }
+
+    const mimeSubtype = match[1].toLowerCase().split("+")[0];
+    const extension =
+      mimeSubtype === "jpeg"
+        ? "jpg"
+        : mimeSubtype.replace(/[^a-z0-9]/g, "") || "jpg";
+    const fileUri = `${FileSystem.documentDirectory}image-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+
+    await FileSystem.writeAsStringAsync(fileUri, match[2], {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return fileUri;
+  }
+
+  private async normalizeRecordImages(
+    table: EntityTable,
+    record: JsonRecord,
+  ): Promise<JsonRecord> {
+    const normalized = { ...record } as JsonRecord & Record<string, unknown>;
+    const imageFields =
+      table === "customers"
+        ? ["avatar"]
+        : table === "invoices"
+          ? ["sellerLogo", "sellerSeal", "sellerSignature"]
+          : ["attachment"];
+
+    for (const field of imageFields) {
+      const value = normalized[field];
+      if (typeof value === "string" && value.startsWith("data:image/")) {
+        normalized[field] = await this.persistImage(value);
+      }
+    }
+    return normalized;
+  }
+
   private async upsertInTransaction(
     db: SQLite.SQLiteDatabase,
     table: EntityTable,
     record: JsonRecord,
   ): Promise<void> {
-    const id = String(record.id);
+    const normalizedRecord = await this.normalizeRecordImages(table, record);
+    const id = String(normalizedRecord.id);
     const now = new Date().toISOString();
-    const payload = JSON.stringify(record);
+    const payload = JSON.stringify(normalizedRecord);
 
     if (table === "invoices") {
       await db.runAsync(
         "INSERT OR REPLACE INTO invoices (id, customer_id, payload, updated_at) VALUES (?, ?, ?, ?)",
         id,
-        record.customerId == null ? null : String(record.customerId),
+        normalizedRecord.customerId == null ? null : String(normalizedRecord.customerId),
         payload,
         now,
       );
 
       await db.runAsync("DELETE FROM invoice_items WHERE invoice_id = ?", id);
-      const items = Array.isArray(record.items) ? record.items : [];
+      const items = Array.isArray(normalizedRecord.items) ? normalizedRecord.items : [];
       for (let index = 0; index < items.length; index += 1) {
         const item = items[index] as Record<string, unknown>;
         const itemId = item?.id == null ? `${id}-item-${index}` : String(item.id);
@@ -186,7 +230,7 @@ class NativeDatabaseService {
       await db.runAsync(
         "INSERT OR REPLACE INTO payments (id, customer_id, payload, updated_at) VALUES (?, ?, ?, ?)",
         id,
-        record.customerId == null ? null : String(record.customerId),
+        normalizedRecord.customerId == null ? null : String(normalizedRecord.customerId),
         payload,
         now,
       );
@@ -203,10 +247,43 @@ class NativeDatabaseService {
 
   async getAll<T>(table: EntityTable): Promise<T[]> {
     const db = await this.getDatabase();
-    const rows = await db.getAllAsync<{ payload: string }>(
-      `SELECT payload FROM ${table} ORDER BY rowid ASC`,
+
+    // Read only small metadata rows first. A single large payload can exceed
+    // Android CursorWindow, even when the query returns only one column.
+    const rows = await db.getAllAsync<{ id: string; payload_length: number }>(
+      `SELECT id, length(payload) AS payload_length FROM ${table} ORDER BY rowid ASC`,
     );
-    return rows.map((row) => JSON.parse(row.payload) as T);
+    const chunkSize = 100_000;
+    const records: T[] = [];
+
+    for (const row of rows) {
+      let payload = "";
+      for (let offset = 1; offset <= row.payload_length; offset += chunkSize) {
+        const part = await db.getFirstAsync<{ chunk: string }>(
+          `SELECT substr(payload, ?, ?) AS chunk FROM ${table} WHERE id = ?`,
+          offset,
+          chunkSize,
+          row.id,
+        );
+        if (!part?.chunk) {
+          throw new Error(`خواندن اطلاعات رکورد ${row.id} از دیتابیس ناقص بود.`);
+        }
+        payload += part.chunk;
+      }
+
+      const parsed = JSON.parse(payload) as JsonRecord;
+      const normalized = await this.normalizeRecordImages(table, parsed);
+      if (JSON.stringify(normalized) !== payload) {
+        await db.runAsync(
+          `UPDATE ${table} SET payload = ? WHERE id = ?`,
+          JSON.stringify(normalized),
+          row.id,
+        );
+      }
+      records.push(normalized as T);
+    }
+
+    return records;
   }
 
   async upsert(table: EntityTable, record: JsonRecord): Promise<void> {
