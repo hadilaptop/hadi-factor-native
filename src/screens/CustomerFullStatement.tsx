@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { exportViewFile } from "../services/documentExport";
 import {
   Gesture,
@@ -14,7 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWindowDimensions } from "react-native";
-import { View, TouchableOpacity, StyleSheet, Pressable } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Pressable, Animated as RNAnimated, Easing } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Path, Polyline, Circle } from "react-native-svg";
@@ -83,6 +83,30 @@ export default function CustomerFullStatement({
     [key: string]: boolean;
   }>({});
   const [showDateModal, setShowDateModal] = useState(false);
+  const dateOverlayOpacity = useRef(new RNAnimated.Value(0)).current;
+  const dateModalScale = useRef(new RNAnimated.Value(0.8)).current;
+
+  useEffect(() => {
+    if (showDateModal) {
+      dateOverlayOpacity.setValue(0);
+      dateModalScale.setValue(0.8);
+
+      RNAnimated.parallel([
+        RNAnimated.timing(dateOverlayOpacity, {
+          toValue: 1,
+          duration: 150,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+        RNAnimated.timing(dateModalScale, {
+          toValue: 1,
+          duration: 200,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [showDateModal, dateOverlayOpacity, dateModalScale]);
   const [datePickerTarget, setDatePickerTarget] = useState<"start" | "end" | null>(null);
   const [showExportModal, setShowExportModal] = useState<
     "share" | "save" | null
@@ -815,11 +839,25 @@ export default function CustomerFullStatement({
       {/* Date Filter Overlay (View-based so JalaliDatePicker Modal can stack above it) */}
       {showDateModal && (
         <View style={styles.dateFilterOverlay}>
+          <RNAnimated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              { opacity: dateOverlayOpacity, backgroundColor: "rgba(0, 0, 0, 0.70)" },
+            ]}
+          />
           <Pressable style={StyleSheet.absoluteFill} onPress={closeDateModal} />
-          <LinearGradient
-            colors={["#224765", "#1f6593"]}
-            style={styles.dateModalBox}
+          <RNAnimated.View
+            style={{
+              width: "100%",
+              
+              transform: [{ scale: dateModalScale }],
+            }}
           >
+            <LinearGradient
+              colors={["#224765", "#1f6593"]}
+              style={styles.dateModalBox}
+            >
             <CustomText style={styles.modalTitle}>فیلتر تاریخ</CustomText>
 
             <CustomText style={styles.inputLabel}>از تاریخ:</CustomText>
@@ -886,7 +924,8 @@ export default function CustomerFullStatement({
                 </CustomText>
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+            </LinearGradient>
+          </RNAnimated.View>
         </View>
       )}
 
@@ -1136,7 +1175,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.65)",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 1000,
@@ -1159,14 +1197,14 @@ const styles = StyleSheet.create({
   },
   exportText: { color: "#ffffff", fontSize: 14 },
   exportDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.1)" },
-  dateModalBox: {
-    width: "85%",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.53)",
-
-  },
+dateModalBox: {
+  width: "85%",
+  alignSelf: "center",
+  borderRadius: 16,
+  padding: 20,
+  borderWidth: 1,
+  borderColor: "rgba(255, 255, 255, 0.53)",
+},
   modalTitle: {
     color: "#ffffff",
     fontSize: 16,
