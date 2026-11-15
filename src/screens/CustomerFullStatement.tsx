@@ -478,7 +478,7 @@ export default function CustomerFullStatement({
                       <CustomText
                         style={[styles.th, { flex: 1.6, textAlign: "left" ,paddingLeft: 15}]}
                       >
-                        مانده
+                       مانده (ریال)
                       </CustomText>   
                     </View>
 
@@ -627,7 +627,7 @@ export default function CustomerFullStatement({
                                     { flex: 1.3, textAlign: "left" },
                                   ]}
                                 >
-                                  جمع
+                                  جمع کل (ریال)
                                 </CustomText>
                               </View>
 
@@ -683,15 +683,15 @@ export default function CustomerFullStatement({
                         style={[
                           styles.td,
                           styles.finalBalanceLabel,
-                          { flex: 3.4, fontSize: 20 },
+                          { flex: 3.4 },
                         ]}
                       >
-                        مانده نهایی:
+                       مجموع کل (ریال) :
                       </CustomText>
                       <CustomText
                         style={[
                           styles.td,
-                          { flex: 3.1, textAlign: "left", paddingLeft: 8, fontSize: 22 },
+                          { flex: 3.1, textAlign: "left", paddingLeft: 8, fontSize: 32 },
                           endBalance > 0
                             ? styles.textDebt
                             : endBalance < 0
@@ -1011,13 +1011,13 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   cardHeader: {
-    backgroundColor: "#0f4c75",
-    padding: 12,
+    backgroundColor: "#29485d",
+    padding: 22,
     alignItems: "center",
   },
   cardTitle: {
     color: "#ffffff",
-    fontSize: 26,
+    fontSize: 36,
   },
   cardSubtitle: {
     color: "#cbd5e1",
@@ -1029,21 +1029,21 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     flexDirection: "row-reverse",
-    backgroundColor: "#cbe5ff",
+    backgroundColor: "#cde8ff",
     borderBottomWidth: 1.5,
     borderColor: "#cbd5e1",
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 6,
   },
   th: {
-    fontSize: 18,
+    fontSize: 24,
     color: "#0e2442",
   },
   tableRow: {
     flexDirection: "row-reverse",
     borderBottomWidth: 1,
     borderColor: "#414448",
-    paddingVertical: 8,
+    paddingVertical: 16,
     paddingHorizontal: 6,
     alignItems: "center",
   },
@@ -1054,28 +1054,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#d1fae5",
   },
   finalBalanceRow: {
-    backgroundColor: "#dbeafe",
-    borderTopWidth: 2,
-    borderColor: "#bfdbfe",
+    backgroundColor: "#cde8ff",
+    paddingVertical: 28,
+    paddingHorizontal: 6,
   },
   td: {
-    fontSize: 16,
+    fontSize: 22,
     color: "#142b4b",
   },
   invoiceLink: {
     color: "#2563eb",
-    fontSize: 14,
+    fontSize: 22,
   },
   textDebt: { color: "#d32f2f" },
   textCredit: { color: "#2e7d32" },
   expandedItemsBox: {
     backgroundColor: "#eeeeee",
-    // marginHorizontal:5,
     paddingHorizontal: 85,
     paddingVertical: 6,
-    // borderRadius: 10,
     borderBottomWidth: 1,
-    // borderColor: "#2b79d1",
   },
   expandedHeader: {
     flexDirection: "row-reverse",
@@ -1083,16 +1080,17 @@ const styles = StyleSheet.create({
     borderColor: "#241eda",
     paddingBottom: 10,
   },
-  expTh: { fontSize: 16, color: "#153868" },
+  expTh: { fontSize: 18, color: "#153868" },
   expandedRow: {
     flexDirection: "row-reverse",
     paddingVertical: 3,
     borderBottomWidth: 0.5,
     borderColor: "#e2e8f0",
   },
-  expTd: { fontSize: 14, color: "153868" },
+  expTd: { fontSize: 16, color: "153868" },
   finalBalanceLabel: {
     color: "#1e3a8a",
+    fontSize: 30,
   },
   bottomBar: {
     position: "absolute",
@@ -1182,8 +1180,7 @@ const styles = StyleSheet.create({
     color: "#cbd5e1",
     fontSize: 12,
     marginBottom: 4,
-    alignSelf: "stretch",
-    writingDirection: "rtl",
+    textAlign: "right",
   },
   modalInput: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",
@@ -1220,7 +1217,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.3)",
   },
   modalActions: {
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     gap: 10,
     marginTop: 15,
   },
