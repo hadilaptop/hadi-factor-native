@@ -90,6 +90,9 @@ export default function CustomerFullStatement({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [exportAlert, setExportAlert] = useState({ visible: false, title: "", message: "", success: false });
   const statementCaptureRef = useRef<React.ComponentRef<typeof Animated.View>>(null);
+  const tableTopYRef = useRef(0);
+  const tableHeaderHeightRef = useRef(0);
+  const transactionRowYRef = useRef<Record<string, number>>({});
 
   const { width } = useWindowDimensions();
   const initialScale = Math.min(
@@ -326,6 +329,11 @@ export default function CustomerFullStatement({
       format: type,
       action,
       filename: `صورت-حساب-${customer?.name || "مشتری"}`,
+      paginateImage: type === "pdf",
+      pageBreakOffsets: statementTransactions.filter((item: any) => typeof transactionRowYRef.current[item.id] === "number").map((item: any) => 26 + tableTopYRef.current + transactionRowYRef.current[item.id]),
+      captureWidthDp: STATEMENT_CARD_WIDTH + 48,
+      repeatHeaderStartDp: 24,
+      repeatHeaderHeightDp: 2 + tableTopYRef.current + tableHeaderHeightRef.current,
       onAlert: (title, message, success) => setExportAlert({ visible: true, title, message, success }),
     });
   };
@@ -439,9 +447,15 @@ export default function CustomerFullStatement({
                   </View>
 
                   {/* Table */}
-                  <View style={styles.table}>
+                  <View
+                    style={styles.table}
+                    onLayout={(event) => { tableTopYRef.current = event.nativeEvent.layout.y; }}
+                  >
                     {/* Header Row */}
-                    <View style={styles.tableHeader}>
+                    <View
+                      style={styles.tableHeader}
+                      onLayout={(event) => { tableHeaderHeightRef.current = event.nativeEvent.layout.height; }}
+                    >
                       <CustomText
                         style={[styles.th, { flex: 1.2, textAlign: "right", paddingRight: 10 }]}
                       >
@@ -503,9 +517,12 @@ export default function CustomerFullStatement({
                     {statementTransactions.map((item: any) => (
                       <React.Fragment key={item.id}>
                         <TouchableOpacity
+                          onLayout={(event) => { transactionRowYRef.current[item.id] = event.nativeEvent.layout.y; }}
                           activeOpacity={item.kind === "invoice" ? 0.7 : 1}
                           style={[
                             styles.tableRow,
+                            item.method === "تسویه حساب" &&
+                              styles.settlementRow,
                           ]}
                           onPress={
                             item.kind === "invoice"
@@ -1033,6 +1050,9 @@ const styles = StyleSheet.create({
   startBalanceRow: {
     backgroundColor: "#fffbeb",
   },
+  settlementRow: {
+    backgroundColor: "#d1fae5",
+  },
   finalBalanceRow: {
     backgroundColor: "#dbeafe",
     borderTopWidth: 2,
@@ -1147,6 +1167,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.53)",
+
   },
   modalTitle: {
     color: "#ffffff",

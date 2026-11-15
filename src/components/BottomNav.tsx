@@ -21,6 +21,7 @@ export default function BottomNav({ activeTab, onNavigate }: BottomNavProps) {
       colors={['#0f4c75', '#0d2b43']}
       style={[styles.bottomNavContainer, { height: navHeight, paddingBottom: safePaddingBottom }]}
     >
+      <View style={[styles.bottomLine, { bottom: Math.max(0, safePaddingBottom - 5) }]} />
       {/* ۱. حساب جدید (منتهی‌الیه سمت راست) */}
       <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('newAccount')}>
         <Ionicons name={activeTab === 'newAccount' ? "person-add" : "person-add-outline"} size={22} color={activeTab === 'newAccount' ? "#10b981" : "rgba(255,255,255,0.5)"} />
@@ -79,6 +80,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 10,
     zIndex: 1000,
+  },
+  bottomLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: '#ffffff62',
+    zIndex: 1001,
   },
   navItem: {
     flex: 1,
