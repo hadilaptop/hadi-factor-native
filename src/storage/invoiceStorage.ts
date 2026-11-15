@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { nativeDb } from "../services/database";
 
 export interface InvoiceItem {
   id: string | number;
@@ -26,16 +26,13 @@ export interface StoredInvoice {
   sellerAddress?: string;
   sellerEconomicCode?: string;
   sellerLogo?: string | null;
+  sellerSeal?: string | null;
+  sellerSignature?: string | null;
 }
-
-const STORAGE_KEY = "@hadi_factor_invoices";
 
 export async function getInvoices(): Promise<StoredInvoice[]> {
   try {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    return Array.isArray(parsed) ? parsed : [];
+    return await nativeDb.getAll<StoredInvoice>("invoices");
   } catch (error) {
     console.error("خطا در دریافت فاکتورها:", error);
     return [];
@@ -44,13 +41,7 @@ export async function getInvoices(): Promise<StoredInvoice[]> {
 
 export async function saveInvoice(invoice: StoredInvoice): Promise<boolean> {
   try {
-    const invoices = await getInvoices();
-    const index = invoices.findIndex((item) => String(item.id) === String(invoice.id));
-
-    if (index === -1) invoices.push(invoice);
-    else invoices[index] = invoice;
-
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
+    await nativeDb.upsert("invoices", invoice);
     return true;
   } catch (error) {
     console.error("خطا در ذخیره فاکتور:", error);
@@ -58,11 +49,11 @@ export async function saveInvoice(invoice: StoredInvoice): Promise<boolean> {
   }
 }
 
-export async function deleteInvoice(invoiceId: string | number): Promise<boolean> {
+export async function deleteInvoice(
+  invoiceId: string | number,
+): Promise<boolean> {
   try {
-    const invoices = await getInvoices();
-    const filtered = invoices.filter((item) => String(item.id) !== String(invoiceId));
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    await nativeDb.delete("invoices", invoiceId);
     return true;
   } catch (error) {
     console.error("خطا در حذف فاکتور:", error);

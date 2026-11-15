@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { nativeDb } from "../services/database";
 
 export interface Customer {
   id: string | number;
@@ -10,7 +10,6 @@ export interface Customer {
   avatar?: string;
 }
 
-const CUSTOMERS_STORAGE_KEY = "@hadi_factor_customers";
 const NEXT_CUSTOMER_CODE_KEY = "@hadi_factor_next_customer_code";
 const CUSTOMER_CODE_START = 1001;
 
@@ -23,32 +22,17 @@ function isValidCustomerCode(value: unknown): value is number {
 }
 
 async function getStoredNextCustomerCode(): Promise<number> {
-  const stored = await AsyncStorage.getItem(NEXT_CUSTOMER_CODE_KEY);
+  const stored = await nativeDb.getMeta(NEXT_CUSTOMER_CODE_KEY);
   const parsed = stored ? Number(stored) : NaN;
-
   return Number.isInteger(parsed) && parsed >= CUSTOMER_CODE_START
     ? parsed
     : CUSTOMER_CODE_START;
 }
 
-/**
- * دریافت تمام مشتری‌های ذخیره‌شده
- */
+/** دریافت تمام مشتری‌های ذخیره‌شده */
 export async function getCustomers(): Promise<Customer[]> {
   try {
-    const storedData = await AsyncStorage.getItem(CUSTOMERS_STORAGE_KEY);
-
-    if (!storedData) {
-      return [];
-    }
-
-    const parsedCustomers = JSON.parse(storedData);
-
-    if (!Array.isArray(parsedCustomers)) {
-      return [];
-    }
-
-    const customers = parsedCustomers as Customer[];
+    const customers = await nativeDb.getAll<Customer>("customers");
     const usedCodes = new Set<number>();
     let highestCode = CUSTOMER_CODE_START - 1;
 
@@ -62,47 +46,29 @@ export async function getCustomers(): Promise<Customer[]> {
     let nextCode = Math.max(
       CUSTOMER_CODE_START,
       await getStoredNextCustomerCode(),
-      highestCode + 1
+      highestCode + 1,
     );
 
     let migrated = false;
-
     const normalizedCustomers = customers.map((customer) => {
-      if (isValidCustomerCode(customer.customerCode)) {
-        return customer;
-      }
+      if (isValidCustomerCode(customer.customerCode)) return customer;
 
-      while (usedCodes.has(nextCode)) {
-        nextCode += 1;
-      }
-
-      const customerWithCode = {
-        ...customer,
-        customerCode: nextCode,
-      };
-
+      while (usedCodes.has(nextCode)) nextCode += 1;
+      const normalized = { ...customer, customerCode: nextCode };
       usedCodes.add(nextCode);
       nextCode += 1;
       migrated = true;
-
-      return customerWithCode;
+      return normalized;
     });
 
     if (migrated) {
-      await AsyncStorage.setItem(
-        CUSTOMERS_STORAGE_KEY,
-        JSON.stringify(normalizedCustomers)
-      );
+      await nativeDb.upsertMany("customers", normalizedCustomers);
     }
 
     const requiredNextCode = Math.max(nextCode, highestCode + 1);
     const storedNextCode = await getStoredNextCustomerCode();
-
     if (migrated || storedNextCode !== requiredNextCode) {
-      await AsyncStorage.setItem(
-        NEXT_CUSTOMER_CODE_KEY,
-        String(requiredNextCode)
-      );
+      await nativeDb.setMeta(NEXT_CUSTOMER_CODE_KEY, String(requiredNextCode));
     }
 
     return normalizedCustomers;
@@ -112,20 +78,12 @@ export async function getCustomers(): Promise<Customer[]> {
   }
 }
 
-/**
- * دریافت کد بعدی مشتری
- */
+/** دریافت کد بعدی مشتری */
 export async function getNextCustomerCode(): Promise<number> {
   try {
     await getCustomers();
-
     const nextCode = await getStoredNextCustomerCode();
-
-    await AsyncStorage.setItem(
-      NEXT_CUSTOMER_CODE_KEY,
-      String(nextCode + 1)
-    );
-
+    await nativeDb.setMeta(NEXT_CUSTOMER_CODE_KEY, String(nextCode + 1));
     return nextCode;
   } catch (error) {
     console.error("خطا در دریافت کد مشتری:", error);
@@ -133,18 +91,10 @@ export async function getNextCustomerCode(): Promise<number> {
   }
 }
 
-/**
- * ذخیره کامل لیست مشتری‌ها
- */
-export async function saveCustomers(
-  customers: Customer[]
-): Promise<boolean> {
+/** ذخیره کامل لیست مشتری‌ها */
+export async function saveCustomers(customers: Customer[]): Promise<boolean> {
   try {
-    await AsyncStorage.setItem(
-      CUSTOMERS_STORAGE_KEY,
-      JSON.stringify(customers)
-    );
-
+    await nativeDb.replaceAll("customers", customers);
     return true;
   } catch (error) {
     console.error("خطا در ذخیره مشتری‌ها:", error);
@@ -152,106 +102,61 @@ export async function saveCustomers(
   }
 }
 
-/**
- * افزودن مشتری جدید
- */
-export async function addCustomer(
-  customer: Customer
-): Promise<boolean> {
+/** افزودن مشتری جدید */
+export async function addCustomer(customer: Customer): Promise<boolean> {
   try {
-    const customers = await getCustomers();
-
-    customers.push(customer);
-
-    return await saveCustomers(customers);
+    await nativeDb.upsert("customers", customer);
+    return true;
   } catch (error) {
     console.error("خطا در افزودن مشتری:", error);
     return false;
   }
 }
 
-/**
- * ویرایش مشتری موجود
- */
-export async function updateCustomer(
-  customer: Customer
-): Promise<boolean> {
+/** ویرایش مشتری موجود */
+export async function updateCustomer(customer: Customer): Promise<boolean> {
   try {
-    const customers = await getCustomers();
-
-    const index = customers.findIndex(
-      (item) => String(item.id) === String(customer.id)
-    );
-
-    if (index === -1) {
+    const customers = await nativeDb.getAll<Customer>("customers");
+    if (!customers.some((item) => String(item.id) === String(customer.id))) {
       return false;
     }
-
-    customers[index] = customer;
-
-    return await saveCustomers(customers);
+    await nativeDb.upsert("customers", customer);
+    return true;
   } catch (error) {
     console.error("خطا در ویرایش مشتری:", error);
     return false;
   }
 }
 
-/**
- * حذف مشتری
- */
+/** حذف مشتری */
 export async function deleteCustomer(
-  customerId: string | number
+  customerId: string | number,
 ): Promise<boolean> {
   try {
-    const customers = await getCustomers();
-
-    const filteredCustomers = customers.filter(
-      (item) => String(item.id) !== String(customerId)
-    );
-
-    return await saveCustomers(filteredCustomers);
+    await nativeDb.delete("customers", customerId);
+    return true;
   } catch (error) {
     console.error("خطا در حذف مشتری:", error);
     return false;
   }
 }
 
-/**
- * افزودن یا ویرایش مشتری
- */
-export async function saveCustomer(
-  customer: Customer
-): Promise<boolean> {
+/** افزودن یا ویرایش مشتری */
+export async function saveCustomer(customer: Customer): Promise<boolean> {
   try {
-    const customers = await getCustomers();
-
-    const index = customers.findIndex(
-      (item) => String(item.id) === String(customer.id)
-    );
-
-    if (index === -1) {
-      customers.push(customer);
-    } else {
-      customers[index] = customer;
-    }
-
-    return await saveCustomers(customers);
+    await nativeDb.upsert("customers", customer);
+    return true;
   } catch (error) {
     console.error("خطا در ذخیره مشتری:", error);
     return false;
   }
 }
 
-/**
- * حذف تمام مشتری‌ها
- * فعلاً برای استفاده داخلی/تست
- */
+/** حذف تمام مشتری‌ها؛ فقط برای استفاده داخلی/تست */
 export async function clearCustomers(): Promise<boolean> {
   try {
-    await AsyncStorage.multiRemove([
-      CUSTOMERS_STORAGE_KEY,
-      NEXT_CUSTOMER_CODE_KEY,
-    ]);
+    await nativeDb.replaceAll("customers", []);
+    await nativeDb.setMeta(NEXT_CUSTOMER_CODE_KEY, String(CUSTOMER_CODE_START));
     return true;
   } catch (error) {
     console.error("خطا در پاک کردن مشتری‌ها:", error);
