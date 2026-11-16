@@ -19,15 +19,21 @@ import AnimatedScrollWrapper, {
 import CustomText from "../components/CustomText";
 import CustomTextInput from "../components/CustomTextInput";
 import { toPersianDigits } from "../utils/numberUtils";
+import { connectGoogleAccount, disconnectGoogleAccount, getConnectedGoogleAccount } from "../services/googleAuth";
+import type { GoogleAccount } from "../services/googleAuth";
+import { createDriveBackup, downloadLatestDriveBackup, getLatestDriveBackupInfo } from "../services/googleDrive";
+import { nativeDb } from "../services/database";
 
 interface SettingsScreenProps {
   onNavigate: (screen: string) => void;
   returnScreen: string;
+  onDataRestored: () => Promise<void>;
 }
 
 export default function SettingsScreen({
   onNavigate,
   returnScreen,
+  onDataRestored,
 }: SettingsScreenProps) {
   const scrollRef = useRef<AnimatedScrollWrapperRef>(null);
 
@@ -39,6 +45,11 @@ export default function SettingsScreen({
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [sealPreview, setSealPreview] = useState<string | null>(null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
+  const [googleAccount, setGoogleAccount] = useState<GoogleAccount | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState("");
+  const [latestBackupLabel, setLatestBackupLabel] = useState("");
+  const [pendingConfirmAction, setPendingConfirmAction] = useState<"reset" | "restore" | null>(null);
   const [exportAlertModal, setExportAlertModal] = useState<{
     show: boolean;
     title: string;
@@ -55,7 +66,80 @@ export default function SettingsScreen({
   });
 
   useEffect(() => {
-    const loadSettings = async () => {
+    try {
+      setGoogleAccount(getConnectedGoogleAccount());
+    } catch (error) {
+      console.warn("Google session could not be restored.", error);
+    }
+  }, []);
+
+  const handleGoogleConnect = async () => {
+    setGoogleBusy(true);
+    setCloudStatus("");
+    try {
+      const account = await connectGoogleAccount();
+      setGoogleAccount(account);
+      setCloudStatus("حساب گوگل و مجوز محدود Drive متصل شد.");
+    } catch (error) {
+      setCloudStatus(error instanceof Error ? error.message : "اتصال حساب گوگل انجام نشد.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const handleGoogleDisconnect = async () => {
+    setGoogleBusy(true);
+    setCloudStatus("");
+    try {
+      await disconnectGoogleAccount();
+      setGoogleAccount(null);
+      setLatestBackupLabel("");
+      setCloudStatus("اتصال گوگل لغو شد؛ فایل‌های پشتیبان در Drive باقی می‌مانند.");
+    } catch (error) {
+      setCloudStatus(error instanceof Error ? error.message : "قطع اتصال انجام نشد.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const handleCreateDriveBackup = async () => {
+    setGoogleBusy(true);
+    setCloudStatus("");
+    try {
+      const snapshot = await nativeDb.exportCloudSnapshot();
+      const file = await createDriveBackup(snapshot);
+      setLatestBackupLabel(file.name);
+      setCloudStatus("نسخه پشتیبان در پوشه HadiFactor ذخیره شد.");
+    } catch (error) {
+      setCloudStatus(error instanceof Error ? error.message : "ساخت نسخه پشتیبان انجام نشد.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const handlePrepareRestore = async () => {
+    setGoogleBusy(true);
+    setCloudStatus("");
+    try {
+      const backup = await getLatestDriveBackupInfo();
+      setLatestBackupLabel(backup.name);
+      setPendingConfirmAction("restore");
+      setExportAlertModal({
+        show: true,
+        title: "بازیابی نسخه پشتیبان",
+        message: "اطلاعات فعلی این گوشی با آخرین نسخه پشتیبان Google Drive جایگزین می‌شود. پیش از ادامه از اطلاعات فعلی نسخه پشتیبان بگیرید. ادامه می‌دهید؟",
+        confirm: true,
+        confirmText: "بازیابی اطلاعات",
+        cancelText: "انصراف",
+      });
+    } catch (error) {
+      setCloudStatus(error instanceof Error ? error.message : "نسخه پشتیبان پیدا نشد.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const loadSettings = async () => {
       try {
         const storedTheme = await AsyncStorage.getItem("invoiceTheme");
         const storedName = await AsyncStorage.getItem("companyName");
@@ -78,6 +162,8 @@ export default function SettingsScreen({
         console.error("Failed to load settings.");
       }
     };
+
+  useEffect(() => {
     loadSettings();
   }, []);
 
@@ -111,6 +197,7 @@ export default function SettingsScreen({
   };
 
   const handleReset = () => {
+    setPendingConfirmAction("reset");
     setExportAlertModal({
       show: true,
       title: "بازنشانی تنظیمات",
@@ -122,7 +209,25 @@ export default function SettingsScreen({
   };
 
   const confirmReset = async () => {
+    const action = pendingConfirmAction;
+    setPendingConfirmAction(null);
     setExportAlertModal({ show: false, title: "", message: "" });
+
+    if (action === "restore") {
+      setGoogleBusy(true);
+      try {
+        const snapshot = await downloadLatestDriveBackup();
+        await nativeDb.restoreCloudSnapshot(snapshot);
+        await onDataRestored();
+        setCloudStatus("بازیابی اطلاعات از Google Drive با موفقیت انجام شد.");
+      } catch (error) {
+        setCloudStatus(error instanceof Error ? error.message : "بازیابی نسخه پشتیبان انجام نشد.");
+      } finally {
+        setGoogleBusy(false);
+      }
+      return;
+    }
+
     setTheme("blue");
     setCompanyName("");
     setCompanyAddress("");
@@ -131,19 +236,11 @@ export default function SettingsScreen({
     setLogoPreview(null);
     setSealPreview(null);
     setSignaturePreview(null);
-
     try {
       await AsyncStorage.multiRemove([
-        "invoiceTheme",
-        "companyName",
-        "companyAddress",
-        "companyPhone",
-        "companyEconomicCode",
-        "companyLogo",
-        "companySeal",
-        "companySignature",
+        "invoiceTheme", "companyName", "companyAddress", "companyPhone",
+        "companyEconomicCode", "companyLogo", "companySeal", "companySignature",
       ]);
-
     } catch {
       setExportAlertModal({
         show: true,
@@ -197,6 +294,41 @@ export default function SettingsScreen({
               {renderThemeButton("green", "#127547")}
               {renderThemeButton("teal", "#13899d")}
             </View>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={["#0f4c75", "#3282b8"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.card}
+          >
+            <CustomText style={styles.label}>اتصال به Google Drive و پشتیبان‌گیری</CustomText>
+            <CustomText style={styles.cloudInfo}>
+              نسخه‌های پشتیبان در حساب Google خودتان و پوشه HadiFactor ذخیره می‌شوند.
+              برنامه رمز گوگل را دریافت نمی‌کند و توکن را در AsyncStorage نمی‌نویسد.
+            </CustomText>
+            {googleAccount ? (
+              <>
+                <CustomText style={styles.cloudAccount}>
+                  متصل: {googleAccount.email ?? googleAccount.name ?? "حساب گوگل"}
+                </CustomText>
+                <TouchableOpacity style={styles.cloudButton} onPress={handleCreateDriveBackup} disabled={googleBusy}>
+                  <CustomText style={styles.btnText}>{googleBusy ? "لطفاً صبر کنید..." : "تهیه نسخه پشتیبان در Drive"}</CustomText>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cloudButtonSecondary} onPress={handlePrepareRestore} disabled={googleBusy}>
+                  <CustomText style={styles.btnText}>بازیابی آخرین نسخه پشتیبان</CustomText>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cloudDisconnect} onPress={handleGoogleDisconnect} disabled={googleBusy}>
+                  <CustomText style={styles.btnText}>قطع اتصال گوگل</CustomText>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity style={styles.cloudButton} onPress={handleGoogleConnect} disabled={googleBusy}>
+                <CustomText style={styles.btnText}>{googleBusy ? "در حال اتصال..." : "اتصال حساب گوگل"}</CustomText>
+              </TouchableOpacity>
+            )}
+            {!!latestBackupLabel && <CustomText style={styles.cloudInfo}>فایل نسخه پشتیبان: {latestBackupLabel}</CustomText>}
+            {!!cloudStatus && <CustomText style={styles.cloudStatus}>{cloudStatus}</CustomText>}
           </LinearGradient>
 
           <LinearGradient
@@ -358,6 +490,24 @@ const styles = StyleSheet.create({
   inputGroup: {
     paddingHorizontal: 5,
     paddingVertical: 5,
+  },
+  cloudInfo: {
+    color: "#eaf6fc", fontSize: 12, lineHeight: 21, textAlign: "right", marginVertical: 7,
+  },
+  cloudAccount: {
+    color: "#ffffff", fontSize: 13, fontWeight: "700", textAlign: "right", marginVertical: 8,
+  },
+  cloudStatus: {
+    color: "#ffffff", fontSize: 12, lineHeight: 20, textAlign: "right", marginTop: 10,
+  },
+  cloudButton: {
+    backgroundColor: "#10b981", borderRadius: 10, paddingVertical: 11, alignItems: "center", marginTop: 9,
+  },
+  cloudButtonSecondary: {
+    backgroundColor: "#2563eb", borderRadius: 10, paddingVertical: 11, alignItems: "center", marginTop: 9,
+  },
+  cloudDisconnect: {
+    backgroundColor: "#dc2626", borderRadius: 10, paddingVertical: 10, alignItems: "center", marginTop: 9,
   },
   input: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",

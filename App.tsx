@@ -184,7 +184,15 @@ export default function App() {
           customers={customers} onInvoiceSaved={handleSaveInvoice}
           invoiceToEdit={selectedInvoice} initialMode={invoiceMode} />;
       case 'settings':
-        return <SettingsScreen onNavigate={setCurrentScreen} returnScreen={settingsReturnScreen} />;
+        return <SettingsScreen onNavigate={setCurrentScreen} returnScreen={settingsReturnScreen}
+          onDataRestored={async () => {
+            const [savedCustomers, savedInvoices, savedPayments] = await Promise.all([
+              getCustomers(), getInvoices(), getPayments(),
+            ]);
+            setCustomers(savedCustomers);
+            setInvoices(savedInvoices);
+            setPayments(savedPayments);
+          }} />;
       default:
         return <HomeScreen onNavigate={setCurrentScreen} />;
     }

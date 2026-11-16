@@ -317,6 +317,159 @@ class NativeDatabaseService {
     });
   }
 
+  async exportCloudSnapshot(): Promise<{
+    schemaVersion: 1;
+    createdAt: string;
+    customers: JsonRecord[];
+    invoices: JsonRecord[];
+    payments: JsonRecord[];
+    settings: Record<string, string>;
+    nextCustomerCode: string | null;
+  }> {
+    const [customers, invoices, payments] = await Promise.all([
+      this.getAll<JsonRecord>("customers"),
+      this.getAll<JsonRecord>("invoices"),
+      this.getAll<JsonRecord>("payments"),
+    ]);
+
+    const encodeImages = async (table: EntityTable, record: JsonRecord): Promise<JsonRecord> => {
+      const copy = { ...record } as JsonRecord & Record<string, unknown>;
+      const fields = table === "customers"
+        ? ["avatar"]
+        : table === "invoices"
+          ? ["sellerLogo", "sellerSeal", "sellerSignature"]
+          : ["attachment"];
+
+      for (const field of fields) {
+        const value = copy[field];
+        if (
+          typeof value !== "string" ||
+          !value.startsWith("file://") ||
+          !FileSystem.documentDirectory ||
+          !value.startsWith(FileSystem.documentDirectory)
+        ) continue;
+
+        const extension = value.split("?")[0].split(".").pop()?.toLowerCase() ?? "jpg";
+        if (!["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(extension)) continue;
+        const subtype = extension === "jpg" ? "jpeg" : extension;
+        const base64 = await FileSystem.readAsStringAsync(value, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        copy[field] = `data:image/${subtype};base64,${base64}`;
+      }
+      return copy;
+    };
+
+    const [customersWithImages, invoicesWithImages, paymentsWithImages] = await Promise.all([
+      Promise.all(customers.map((item) => encodeImages("customers", item))),
+      Promise.all(invoices.map((item) => encodeImages("invoices", item))),
+      Promise.all(payments.map((item) => encodeImages("payments", item))),
+    ]);
+
+    const settingKeys = [
+      "invoiceTheme",
+      "companyName",
+      "companyAddress",
+      "companyPhone",
+      "companyEconomicCode",
+      "companyLogo",
+      "companySeal",
+      "companySignature",
+    ];
+    const storedSettings = await AsyncStorage.multiGet(settingKeys);
+    const settings: Record<string, string> = {};
+    for (const [key, value] of storedSettings) {
+      if (value == null) continue;
+      let savedValue = value;
+      if (
+        ["companyLogo", "companySeal", "companySignature"].includes(key) &&
+        value.startsWith("file://") &&
+        FileSystem.documentDirectory &&
+        value.startsWith(FileSystem.documentDirectory)
+      ) {
+        const extension = value.split("?")[0].split(".").pop()?.toLowerCase() ?? "jpg";
+        if (["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(extension)) {
+          const subtype = extension === "jpg" ? "jpeg" : extension;
+          const base64 = await FileSystem.readAsStringAsync(value, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          savedValue = `data:image/${subtype};base64,${base64}`;
+        }
+      }
+      settings[key] = savedValue;
+    }
+
+    return {
+      schemaVersion: 1,
+      createdAt: new Date().toISOString(),
+      customers: customersWithImages,
+      invoices: invoicesWithImages,
+      payments: paymentsWithImages,
+      settings,
+      nextCustomerCode: await this.getMeta(NEXT_CUSTOMER_CODE_KEY),
+    };
+  }
+
+  async restoreCloudSnapshot(snapshot: {
+    schemaVersion: 1;
+    customers: JsonRecord[];
+    invoices: JsonRecord[];
+    payments: JsonRecord[];
+    settings: Record<string, string>;
+    nextCustomerCode: string | null;
+  }): Promise<void> {
+    if (
+      snapshot.schemaVersion !== 1 ||
+      !Array.isArray(snapshot.customers) ||
+      !Array.isArray(snapshot.invoices) ||
+      !Array.isArray(snapshot.payments) ||
+      !snapshot.settings ||
+      typeof snapshot.settings !== "object"
+    ) throw new Error("ساختار نسخه پشتیبان معتبر نیست.");
+
+    const db = await this.getDatabase();
+    await db.withTransactionAsync(async () => {
+      await db.runAsync("DELETE FROM invoices");
+      await db.runAsync("DELETE FROM payments");
+      await db.runAsync("DELETE FROM customers");
+      for (const customer of snapshot.customers) {
+        await this.upsertInTransaction(db, "customers", customer);
+      }
+      for (const invoice of snapshot.invoices) {
+        await this.upsertInTransaction(db, "invoices", invoice);
+      }
+      for (const payment of snapshot.payments) {
+        await this.upsertInTransaction(db, "payments", payment);
+      }
+      if (snapshot.nextCustomerCode) {
+        await db.runAsync(
+          "INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)",
+          NEXT_CUSTOMER_CODE_KEY,
+          snapshot.nextCustomerCode,
+        );
+      } else {
+        await db.runAsync("DELETE FROM app_meta WHERE key = ?", NEXT_CUSTOMER_CODE_KEY);
+      }
+    });
+
+    const settingKeys = [
+      "invoiceTheme",
+      "companyName",
+      "companyAddress",
+      "companyPhone",
+      "companyEconomicCode",
+      "companyLogo",
+      "companySeal",
+      "companySignature",
+    ];
+    await AsyncStorage.multiRemove(settingKeys);
+    const settingEntries = Object.entries(snapshot.settings).filter(
+      (entry): entry is [string, string] =>
+        settingKeys.includes(entry[0]) && typeof entry[1] === "string",
+    );
+    if (settingEntries.length) await AsyncStorage.multiSet(settingEntries);
+  }
+
   async getMeta(key: string): Promise<string | null> {
     const db = await this.getDatabase();
     const row = await db.getFirstAsync<{ value: string }>(
