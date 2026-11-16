@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import {
   View,
   Image,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  ScrollView,
   Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -73,10 +73,6 @@ export default function CustomersScreen({
     }).start();
   }, [screenSlideAnim]);
 
-  useEffect(() => {
-    console.log('[CUSTOMER DEBUG][CustomersScreen]', customers.length, filteredCustomers.length, customers.map((item) => item.id));
-  }, [customers, filteredCustomers]);
-
   const handleClose = () => {
     onNavigate('dashboard');
   };
@@ -129,14 +125,23 @@ export default function CustomersScreen({
           </View>
         </View>
 
-        <ScrollView
+        <FlashList<Customer>
+          data={filteredCustomers}
+          keyExtractor={(customer) => String(customer.id)}
+          extraData={activeDropdown}
           style={styles.customerList}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-        >
-          {filteredCustomers.map((customer, index) => (
-            <View key={String(customer.id)} style={styles.customerCardWrapper}>
+          ListEmptyComponent={
+            <CustomText style={styles.emptyText}>
+              {searchQuery.trim()
+                ? 'مشتری با این مشخصات یافت نشد.'
+                : 'هنوز مشتری ثبت نشده است.'}
+            </CustomText>
+          }
+          renderItem={({ item: customer, index }) => (
+            <View style={styles.customerCardWrapper}>
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={styles.customerCard}
@@ -190,15 +195,8 @@ export default function CustomersScreen({
                 </LinearGradient>
               </TouchableOpacity>
             </View>
-          ))}
-          {filteredCustomers.length === 0 && (
-            <CustomText style={styles.emptyText}>
-              {searchQuery.trim()
-                ? 'مشتری با این مشخصات یافت نشد.'
-                : 'هنوز مشتری ثبت نشده است.'}
-            </CustomText>
           )}
-        </ScrollView>
+        />
       </Animated.View>
 
       <ActionDropdown

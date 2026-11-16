@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { FlashList } from "@shopify/flash-list";
 import { exportViewFile } from "../services/documentExport";
 import {
   View,
-  ScrollView,
   TouchableOpacity,
   Modal,
   Pressable,
@@ -34,6 +32,8 @@ import InvoicePreview from "./InvoicePreview";
 import { getInvoices, saveInvoice } from "../storage/invoiceStorage";
 
 import CustomText from "../components/CustomText";
+import CustomerPickerList from "../components/CustomerPickerList";
+import InvoiceItemsList from "../components/InvoiceItemsList";
 import CustomTextInput from "../components/CustomTextInput";
 import JalaliDatePicker from "../components/JalaliDatePicker";
 import * as jalaali from "jalaali-js";
@@ -751,128 +751,20 @@ export default function InvoiceScreen({
                 </View>
               </LinearGradient>
 
-              <LinearGradient
-                colors={["#1f5579", "#347dad"]}
-                start={{ x: 1, y: 0 }}
-                end={{ x: 0, y: 1 }}
-                style={styles.card}
-              >
-                <View style={styles.rowHeader}>
-                  <CustomText style={styles.sectionTitle}>
-                    اقلام و کالاهای فاکتور
-                  </CustomText>
-                  <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={addRow}
-                    disabled={rows.length >= MAX_ROWS}
-                  >
-                    <CustomText style={styles.addButtonText}>
-                      + سطر جدید ({toPersianDigits(rows.length.toString())})
-                    </CustomText>
-                  </TouchableOpacity>
-                </View>
-
-                {rows.map((row: any, index: number) => (
-                  <View key={row.id} style={styles.itemRow}>
-                    <View style={styles.itemRowTop}>
-                      <CustomText style={styles.itemBadge}>
-                        سطر {toPersianDigits((index + 1).toString())}
-                      </CustomText>
-                      {rows.length > 1 && (
-                        <TouchableOpacity
-                          onPress={() => removeRow(index)}
-                          style={styles.deleteBtn}
-                        >
-                          <Ionicons
-                            name="trash-outline"
-                            size={16}
-                            color="#ffffff"
-                          />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    <CustomText style={styles.labelSm}>
-                      شرح کالا / خدمات
-                    </CustomText>
-                    <CustomTextInput
-                      style={[styles.input, { marginBottom: 8 }]}
-                      placeholderTextColor="rgba(255,255,255,0.45)"
-                      placeholder="محصول جدید"
-                      value={row.desc}
-                      onChangeText={(text: string) => {
-                        const newRows = [...rows];
-                        newRows[index].desc = text;
-                        setRows(newRows);
-                      }}
-                    />
-
-                    <View style={styles.rowInputGroup}>
-                      <View style={{ flex: 1 }}>
-                        <CustomText style={styles.labelSm}>تعداد</CustomText>
-                        <CustomTextInput
-                          style={[styles.input, { textAlign: "center" }]}
-                          placeholderTextColor="rgba(255,255,255,0.45)"
-                          placeholder="0"
-                          keyboardType="numeric"
-                          value={row.quantity}
-                          onChangeText={(text: string) => {
-                            const cleaned = text.replace(/[^0-9۰-۹]/g, "");
-                            const newRows = [...rows];
-                            newRows[index].quantity = cleaned;
-                            setRows(newRows);
-                          }}
-                        />
-                      </View>
-                      <View style={{ flex: 2 }}>
-                        <CustomText style={styles.labelSm}>
-                          قیمت واحد (ریال)
-                        </CustomText>
-                        <CustomTextInput
-                          style={[styles.input, { textAlign: "left" }]}
-                          placeholderTextColor="rgba(255,255,255,0.45)"
-                          placeholder="۰"
-                          keyboardType="numeric"
-                          value={
-                            row.unitPrice ? formatNumber(row.unitPrice) : ""
-                          }
-                          onChangeText={(text: string) => {
-                            const cleaned = text.replace(/[^0-9۰-۹]/g, "");
-                            const newRows = [...rows];
-                            newRows[index].unitPrice = cleaned;
-                            setRows(newRows);
-                          }}
-                        />
-                      </View>
-                    </View>
-                    <View style={styles.itemTotalBox}>
-                      <CustomText style={styles.labelSm}>
-                        جمع:{" "}
-                        {formatNumber(
-                          (parseNumber(row.quantity) || 1) *
-                            (parseNumber(row.unitPrice) || 0),
-                        )}{" "}
-                        ریال
-                      </CustomText>
-                    </View>
-                  </View>
-                ))}
-
-                <View style={styles.totalBox}>
-                  <CustomText style={styles.totalTitle}>
-                    مبلغ کل فاکتور:
-                  </CustomText>
-                  <CustomText style={styles.totalAmount}>
-                    {formatNumber(grandTotal)}{" "}
-                    <CustomText style={styles.currencyText}>ریال</CustomText>
-                  </CustomText>
-                </View>
-                <View style={styles.wordsBox}>
-                  <CustomText style={styles.wordsText}>
-                    {convertNumberToPersianWords(grandTotal)}
-                  </CustomText>
-                </View>
-              </LinearGradient>
+              <InvoiceItemsList
+                rows={rows}
+                grandTotal={grandTotal}
+                canAddRow={rows.length < MAX_ROWS}
+                onAddRow={addRow}
+                onRemoveRow={removeRow}
+                onChangeRow={(index, field, value) => {
+                  setRows((currentRows: any[]) =>
+                    currentRows.map((row, rowIndex) =>
+                      rowIndex === index ? { ...row, [field]: value } : row,
+                    ),
+                  );
+                }}
+              />
 
               <LinearGradient
                 colors={["#1f5579", "#347dad"]}
@@ -1206,51 +1098,19 @@ export default function InvoiceScreen({
               end={{ x: 0, y: 1 }}
               style={styles.dropdownList}
             >
-              <ScrollView
-                style={styles.dropdownScroll}
-                showsVerticalScrollIndicator
-                keyboardShouldPersistTaps="always"
-              >
-                {[
-                  { label: " مشتری جدید ", value: null, customerCode: null },
-                  ...customers.map((c: any) => ({
-                    label: c.name,
-                    customerCode: c.customerCode,
-                    value: c.id,
-                  })),
-                ].map((opt: any, index: number) => {
-                  const isSelected =
-                    String(opt.value ?? "") === String(selectedCustomerId ?? "");
-                  return (
-                    <TouchableOpacity
-                      key={String(opt.value ?? `new-${index}`)}
-                      style={[
-                        styles.dropdownItem,
-                        isSelected && styles.dropdownItemSelected,
-                      ]}
-                      onPress={() => {
-                        handleCustomerSelect(
-                          opt.value != null ? String(opt.value) : null,
-                        );
-                        setIsCustomerDropdownOpen(false);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <CustomText style={styles.dropdownItemText} numberOfLines={2}>
-                        {opt.label}
-                      </CustomText>
-                      {isSelected && (
-                        <Ionicons name="checkmark" size={18} color="#fff" />
-                      )}
-                      {opt.customerCode != null && (
-                        <CustomText style={styles.dropdownCodeText}>
-                          {toPersianDigits(String(opt.customerCode))}
-                        </CustomText>
-                      )}
-                    </TouchableOpacity>
+              <CustomerPickerList
+                customers={customers}
+                selectedCustomerId={selectedCustomerId}
+                allowEmptyOption
+                emptyOptionLabel="مشتری جدید"
+                onSelect={(customerId) => {
+                  handleCustomerSelect(
+                    customerId != null ? String(customerId) : null,
                   );
-                })}
-              </ScrollView>
+                  setIsCustomerDropdownOpen(false);
+                }}
+                codeFontSize={13}
+              />
             </LinearGradient>
           </Animated.View>
         </View>
@@ -1404,41 +1264,6 @@ const styles = StyleSheet.create({
     padding: 6,
     maxHeight: 260,
     overflow: "hidden",
-  },
-  dropdownScroll: {
-    height: 234,
-    maxHeight: 234,
-    flexGrow: 0,
-    flexShrink: 1,
-  },
-  dropdownItem: {
-    minHeight: 44,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#a2c8e2",
-    marginBottom: 4,
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  dropdownItemSelected: {
-    backgroundColor: "#10b981",
-    borderColor: "#10b981",
-  },
-  dropdownItemText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-    textAlign: "right",
-    flex: 1,
-  },
-  dropdownCodeText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
-    marginLeft: 8,
   },
   rowHeader: {
     flexDirection: "row-reverse",

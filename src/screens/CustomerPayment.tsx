@@ -1,9 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FlashList } from "@shopify/flash-list";
 import {
   ActivityIndicator,
   Animated,
-  ScrollView,
   Dimensions,
   Modal,
   Pressable,
@@ -16,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Header from "../components/Header";
 import ImageUpload from "../components/ImageUpload";
 import CustomText from "../components/CustomText";
+import CustomerPickerList from "../components/CustomerPickerList";
 import CustomTextInput from "../components/CustomTextInput";
 import JalaliDatePicker from "../components/JalaliDatePicker";
 import AnimatedScrollWrapper from "../components/AnimatedScrollWrapper";
@@ -369,42 +368,16 @@ export default function CustomerPayment({
               end={{ x: 0, y: 1 }}
               style={styles.dropdownList}
             >
-              <ScrollView
-                style={styles.dropdownScroll}
-                showsVerticalScrollIndicator
-                keyboardShouldPersistTaps="always"
-              >
-                {customers.length === 0 ? (
-                  <CustomText style={styles.emptyCustomers}>
-                    هنوز مشتری‌ای ثبت نشده است.
-                  </CustomText>
-                ) : (
-                  customers.map((item) => {
-                    const isSelected = String(item.id) === String(selectedCustomerId);
-                    return (
-                      <TouchableOpacity
-                        key={String(item.id)}
-                        style={[styles.dropdownItem, isSelected && styles.dropdownItemSelected]}
-                        onPress={() => {
-                          setSelectedCustomerId(item.id);
-                          setCustomerPickerVisible(false);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <CustomText style={styles.dropdownItemText} numberOfLines={2}>
-                          {item.name}
-                        </CustomText>
-                        {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
-                        {item.customerCode != null && (
-                          <CustomText style={styles.dropdownCodeText}>
-                            {toPersianDigits(String(item.customerCode))}
-                          </CustomText>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })
-                )}
-              </ScrollView>
+              <CustomerPickerList
+                customers={customers}
+                selectedCustomerId={selectedCustomerId}
+                onSelect={(customerId) => {
+                  if (customerId != null) setSelectedCustomerId(customerId);
+                  setCustomerPickerVisible(false);
+                }}
+                itemGap={8}
+                emptyMessage="هنوز مشتری‌ای ثبت نشده است."
+              />
             </LinearGradient>
           </Animated.View>
         </View>
@@ -514,23 +487,6 @@ const styles = StyleSheet.create({
     maxHeight: 260,
     overflow: "hidden",
   },
-  dropdownScroll: { height: 234, maxHeight: 234, flexGrow: 0, flexShrink: 1 },
-  dropdownItem: {
-    minHeight: 44,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#a2c8e2",
-    marginBottom: 4,
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  dropdownItemSelected: { backgroundColor: "#10b981", borderColor: "#10b981" },
-  dropdownItemText: { color: "#ffffff", fontSize: 14, fontWeight: "600", textAlign: "right", flex: 1 },
-  dropdownCodeText: { color: "#ffffff", fontSize: 14, fontWeight: "600", marginLeft: 8 },
   amountWrap: { position: "relative", justifyContent: "center" },
   amountInput: { textAlign: "left", paddingLeft: 12 },
   dateWrap: { position: "relative", justifyContent: "center" },
@@ -619,5 +575,4 @@ const styles = StyleSheet.create({
   cancelText: { color: "#dee1e4", fontSize: 15 },
   saveButton: { backgroundColor: "#10b981" },
   saveText: { color: "#ffffff", fontSize: 15 },
-  emptyCustomers: { color: "#ffffff", textAlign: "center", padding: 20, fontSize: 15 },
 });
