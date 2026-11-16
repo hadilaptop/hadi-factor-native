@@ -20,7 +20,7 @@ jobs:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -28,12 +28,13 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
-      - name: Build signed Release APK
+      - name: Build Release and Expo Development APKs
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          USE_RELEASE_SIGNING_FOR_DEBUG: 'true'
         run: |
           set -euo pipefail
           cd android
@@ -50,10 +51,16 @@ jobs:
           trap 'rm -f app/release.keystore' EXIT
 
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease assembleDebug
 
-      - name: Upload APK
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload Expo Development APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hadman-factor-expo-dev-client
+          path: android/app/build/outputs/apk/debug/app-debug.apk

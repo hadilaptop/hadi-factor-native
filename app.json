@@ -20,6 +20,7 @@
       "package": "ir.hadonix.hadmanfactor"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-asset",
       "expo-font",
       "expo-sharing",

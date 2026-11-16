@@ -119,7 +119,7 @@ android {
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.debug
+            signingConfig(System.getenv("USE_RELEASE_SIGNING_FOR_DEBUG") == "true" ? signingConfigs.release : signingConfigs.debug)
         }
         release {
             signingConfig signingConfigs.release
