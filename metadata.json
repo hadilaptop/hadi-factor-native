@@ -1,6 +1,6 @@
 {
-  "name": "Expo React Native Boilerplate & Architecture Studio",
-  "description": "Production-ready Expo React Native starter architecture with React Navigation (Tabs + Stack), Zustand state management, and an interactive live simulator.",
+  "name": "Hadman Factor",
+  "description": "Hadman Factor (هادمان فاکتور) is an invoice and customer account management application by Hadonix.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

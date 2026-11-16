@@ -5100,7 +5100,7 @@ const styles = StyleSheet.create({
     category: 'Config',
     description: 'Expo SDK 52 package.json with React Navigation, Zustand, and TypeScript dependencies.',
     content: `{
-  "name": "my-expo-app",
+  "name": "hadman-factor",
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
@@ -5138,8 +5138,8 @@ const styles = StyleSheet.create({
     description: 'Expo application configuration file with bundle identifiers and splash screen settings.',
     content: `{
   "expo": {
-    "name": "My Expo App",
-    "slug": "my-expo-app",
+    "name": "Hadman Factor",
+    "slug": "hadman-factor",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -5151,14 +5151,14 @@ const styles = StyleSheet.create({
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.company.myexpoapp"
+      "bundleIdentifier": "ir.hadonix.hadmanfactor"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.company.myexpoapp"
+      "package": "ir.hadonix.hadmanfactor"
     }
   }
 }
@@ -5169,7 +5169,7 @@ const styles = StyleSheet.create({
     name: 'README.md',
     category: 'Config',
     description: 'Quick start guide, folder structure overview, and web-to-mobile migration notes.',
-    content: `# Expo React Native Boilerplate
+    content: `# Hadman Factor — React Native
 
 A production-ready architecture designed for senior web developers migrating from React.js to React Native.
 
@@ -5196,7 +5196,7 @@ npx expo start
 ## 📁 Recommended Folder Structure
 
 \`\`\`text
-my-expo-app/
+hadman-factor/
 ├── app.json                     # Expo configuration
 ├── package.json
 ├── tsconfig.json

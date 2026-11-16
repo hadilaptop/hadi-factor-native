@@ -1,4 +1,4 @@
-package com.company.myexpoapp
+package ir.hadonix.hadmanfactor
 
 import android.graphics.Color
 import android.os.Build

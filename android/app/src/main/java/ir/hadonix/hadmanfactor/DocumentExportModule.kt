@@ -1,4 +1,4 @@
-package com.company.myexpoapp
+package ir.hadonix.hadmanfactor
 
 import android.content.ContentValues
 import android.net.Uri
@@ -34,7 +34,7 @@ class DocumentExportModule(
           put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
           put(
             MediaStore.MediaColumns.RELATIVE_PATH,
-            Environment.DIRECTORY_DOWNLOADS + "/Hadi factor"
+            Environment.DIRECTORY_DOWNLOADS + "/Hadman Factor"
           )
           put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
@@ -56,9 +56,9 @@ class DocumentExportModule(
         val downloads = Environment.getExternalStoragePublicDirectory(
           Environment.DIRECTORY_DOWNLOADS
         )
-        val folder = File(downloads, "Hadi factor")
+        val folder = File(downloads, "Hadman Factor")
         if (!folder.exists() && !folder.mkdirs()) {
-          throw IOException("ساخت پوشه Hadi factor انجام نشد.")
+          throw IOException("ساخت پوشه Hadman Factor انجام نشد.")
         }
 
         val destination = File(folder, filename)

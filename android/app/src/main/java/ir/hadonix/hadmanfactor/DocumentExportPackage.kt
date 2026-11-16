@@ -1,4 +1,4 @@
-package com.company.myexpoapp
+package ir.hadonix.hadmanfactor
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

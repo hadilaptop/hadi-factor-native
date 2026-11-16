@@ -25,7 +25,7 @@ type DocumentExportNativeModule = {
   saveFile(base64: string, filename: string, mimeType: string): Promise<string>;
 };
 
-const EXPORT_FOLDER_NAME = "Hadi factor";
+const EXPORT_FOLDER_NAME = "Hadman Factor";
 const DocumentExportModule =
   NativeModules.DocumentExportModule as DocumentExportNativeModule | undefined;
 

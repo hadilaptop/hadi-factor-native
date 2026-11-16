@@ -1,20 +1,18 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Hadman Factor | هادمان فاکتور
 
-# Run and deploy your AI Studio app
+محصولی از برند هادونیکس (Hadonix)
 
-This contains everything you need to run your app locally.
+## شناسه برنامه
+- Android Application ID: `ir.hadonix.hadmanfactor`
+- iOS Bundle Identifier: `ir.hadonix.hadmanfactor`
 
-View your app in AI Studio: https://ai.studio/apps/802a3301-6ccf-40e0-9c64-da042ce88665
+## اجرای پروژه
+پروژه با Expo و React Native توسعه داده شده است.
 
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
+1. نصب وابستگی‌ها:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. اجرای محیط توسعه:
+   `npx expo start`
+
+## ساخت APK
+ساخت نسخه اندروید از طریق workflow موجود در GitHub Actions انجام می‌شود.

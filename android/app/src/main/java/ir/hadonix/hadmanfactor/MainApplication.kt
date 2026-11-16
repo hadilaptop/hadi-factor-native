@@ -1,4 +1,4 @@
-package com.company.myexpoapp
+package ir.hadonix.hadmanfactor
 
 import android.app.Application
 import android.content.res.Configuration

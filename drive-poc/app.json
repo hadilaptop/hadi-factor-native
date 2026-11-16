@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Hadifactor Drive POC",
+    "slug": "hadifactor-drive-poc",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "hadifactordrivepoc",
+    "android": {
+      "package": "com.hadifactordrivepoc"
+    },
+    "plugins": [
+      "@react-native-google-signin/google-signin",
+      "expo-secure-store"
+    ]
+  }
+}

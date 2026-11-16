@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "My Expo App",
-    "slug": "my-expo-app",
+    "name": "Hadman Factor",
+    "slug": "hadman-factor",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -11,13 +11,13 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.company.myexpoapp"
+      "bundleIdentifier": "ir.hadonix.hadmanfactor"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       },
-      "package": "com.company.myexpoapp"
+      "package": "ir.hadonix.hadmanfactor"
     },
     "plugins": [
       "expo-asset",
