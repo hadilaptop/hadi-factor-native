@@ -22,6 +22,7 @@ function configureGoogleSignIn(): void {
   if (configured) return;
   GoogleOneTapSignIn.configure({
     webClientId: GOOGLE_WEB_CLIENT_ID,
+    scopes: [DRIVE_FILE_SCOPE],
     autoSelectOnSignIn: false,
   });
   configured = true;
