@@ -11,15 +11,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as jalaali from 'jalaali-js';
-
-// کامپوننت‌های سفارشی
 import CustomText from '../components/CustomText';
 import { toPersianDigits } from '../utils/numberUtils';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({
-  onNavigate = (screen: string) => console.log(screen),
+  onNavigate = (_screen: string) => {},
   customerCount = 0,
   isInitialized = true,
 }) {

@@ -1,4 +1,7 @@
 import * as SQLite from "expo-sqlite";
+import { AppState } from "react-native";
+import { getConnectedGoogleAccount } from "./googleAuth";
+import { createDriveBackup } from "./googleDrive";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 
@@ -17,10 +20,14 @@ const NEXT_CUSTOMER_CODE_KEY = "@hadi_factor_next_customer_code";
 const INVOICE_KEY = "@hadi_factor_invoices";
 const PAYMENT_KEY = "@hadi_factor_payments_v2";
 const LEGACY_PAYMENT_KEY = "@hadi_factor_payments";
+const AUTO_BACKUP_PENDING_KEY = "@hadman_factor_drive_backup_pending";
 
 class NativeDatabaseService {
   private database: SQLite.SQLiteDatabase | null = null;
   private initialization: Promise<SQLite.SQLiteDatabase> | null = null;
+  private autoBackupTimer: ReturnType<typeof setTimeout> | null = null;
+  private autoBackupRunning = false;
+  private autoBackupRequested = false;
 
   async getDatabase(): Promise<SQLite.SQLiteDatabase> {
     if (this.database) return this.database;
@@ -291,6 +298,7 @@ class NativeDatabaseService {
     await db.withTransactionAsync(async () => {
       await this.upsertInTransaction(db, table, record);
     });
+    void this.requestCloudBackup();
   }
 
   async upsertMany(table: EntityTable, records: JsonRecord[]): Promise<void> {
@@ -300,11 +308,13 @@ class NativeDatabaseService {
         await this.upsertInTransaction(db, table, record);
       }
     });
+    if (records.length) void this.requestCloudBackup();
   }
 
   async delete(table: EntityTable, id: string | number): Promise<void> {
     const db = await this.getDatabase();
     await db.runAsync(`DELETE FROM ${table} WHERE id = ?`, String(id));
+    void this.requestCloudBackup();
   }
 
   async replaceAll(table: EntityTable, records: JsonRecord[]): Promise<void> {
@@ -315,6 +325,56 @@ class NativeDatabaseService {
         await this.upsertInTransaction(db, table, record);
       }
     });
+    void this.requestCloudBackup();
+  }
+
+  private isGoogleDriveConnected(): boolean {
+    try {
+      return Boolean(getConnectedGoogleAccount());
+    } catch {
+      return false;
+    }
+  }
+
+  async requestCloudBackup(): Promise<void> {
+    await AsyncStorage.setItem(AUTO_BACKUP_PENDING_KEY, "1").catch(() => undefined);
+    this.autoBackupRequested = true;
+    if (!this.isGoogleDriveConnected()) return;
+    if (this.autoBackupRunning) return;
+
+    if (this.autoBackupTimer) clearTimeout(this.autoBackupTimer);
+    this.autoBackupTimer = setTimeout(() => {
+      this.autoBackupTimer = null;
+      void this.flushAutomaticBackup();
+    }, 1800);
+  }
+
+  async retryPendingCloudBackup(): Promise<void> {
+    const pending = await AsyncStorage.getItem(AUTO_BACKUP_PENDING_KEY).catch(() => null);
+    if (pending === "1" && this.isGoogleDriveConnected()) {
+      await this.requestCloudBackup();
+    }
+  }
+
+  private async flushAutomaticBackup(): Promise<void> {
+    if (this.autoBackupRunning || !this.isGoogleDriveConnected()) return;
+    this.autoBackupRunning = true;
+    try {
+      do {
+        this.autoBackupRequested = false;
+        const snapshot = await this.exportCloudSnapshot();
+        await createDriveBackup(snapshot);
+      } while (this.autoBackupRequested && this.isGoogleDriveConnected());
+
+      await AsyncStorage.removeItem(AUTO_BACKUP_PENDING_KEY);
+    } catch {
+      await AsyncStorage.setItem(AUTO_BACKUP_PENDING_KEY, "1").catch(() => undefined);
+    } finally {
+      this.autoBackupRunning = false;
+      if (this.autoBackupRequested && this.isGoogleDriveConnected()) {
+        await this.requestCloudBackup();
+      }
+    }
   }
 
   async exportCloudSnapshot(): Promise<{
@@ -486,7 +546,16 @@ class NativeDatabaseService {
       key,
       value,
     );
+    if (key === NEXT_CUSTOMER_CODE_KEY) void this.requestCloudBackup();
   }
 }
 
 export const nativeDb = new NativeDatabaseService();
+
+AppState.addEventListener("change", (state) => {
+  if (state === "active") {
+    void nativeDb.retryPendingCloudBackup();
+  }
+});
+
+void nativeDb.retryPendingCloudBackup();

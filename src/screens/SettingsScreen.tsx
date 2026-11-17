@@ -21,7 +21,7 @@ import CustomTextInput from "../components/CustomTextInput";
 import { toPersianDigits } from "../utils/numberUtils";
 import { connectGoogleAccount, disconnectGoogleAccount, getConnectedGoogleAccount } from "../services/googleAuth";
 import type { GoogleAccount } from "../services/googleAuth";
-import { createDriveBackup, downloadLatestDriveBackup, getLatestDriveBackupInfo, testDriveConnection } from "../services/googleDrive";
+import { createDriveBackup, downloadLatestDriveBackup, getLatestDriveBackupInfo } from "../services/googleDrive";
 import { nativeDb } from "../services/database";
 
 interface SettingsScreenProps {
@@ -45,11 +45,15 @@ export default function SettingsScreen({
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [sealPreview, setSealPreview] = useState<string | null>(null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
-  const [googleAccount, setGoogleAccount] = useState<GoogleAccount | null>(null);
+  const [googleAccount, setGoogleAccount] = useState<GoogleAccount | null>(
+    null,
+  );
   const [googleBusy, setGoogleBusy] = useState(false);
   const [cloudStatus, setCloudStatus] = useState("");
   const [latestBackupLabel, setLatestBackupLabel] = useState("");
-  const [pendingConfirmAction, setPendingConfirmAction] = useState<"reset" | "restore" | null>(null);
+  const [pendingConfirmAction, setPendingConfirmAction] = useState<
+    "reset" | "restore" | null
+  >(null);
   const [exportAlertModal, setExportAlertModal] = useState<{
     show: boolean;
     title: string;
@@ -68,8 +72,8 @@ export default function SettingsScreen({
   useEffect(() => {
     try {
       setGoogleAccount(getConnectedGoogleAccount());
-    } catch (error) {
-      console.warn("Google session could not be restored.", error);
+    } catch {
+      setGoogleAccount(null);
     }
   }, []);
 
@@ -79,9 +83,12 @@ export default function SettingsScreen({
     try {
       const account = await connectGoogleAccount();
       setGoogleAccount(account);
-      setCloudStatus("حساب گوگل و مجوز محدود Drive متصل شد.");
+      await nativeDb.requestCloudBackup();
+      setCloudStatus("حساب گوگل متصل شد؛ پشتیبان‌گیری خودکار فعال است.");
     } catch (error) {
-      setCloudStatus(error instanceof Error ? error.message : "اتصال حساب گوگل انجام نشد.");
+      setCloudStatus(
+        error instanceof Error ? error.message : "اتصال حساب گوگل انجام نشد.",
+      );
     } finally {
       setGoogleBusy(false);
     }
@@ -94,26 +101,13 @@ export default function SettingsScreen({
       await disconnectGoogleAccount();
       setGoogleAccount(null);
       setLatestBackupLabel("");
-      setCloudStatus("اتصال گوگل لغو شد؛ فایل‌های پشتیبان در Drive باقی می‌مانند.");
-    } catch (error) {
-      setCloudStatus(error instanceof Error ? error.message : "قطع اتصال انجام نشد.");
-    } finally {
-      setGoogleBusy(false);
-    }
-  };
-
-  const handleTestDriveConnection = async () => {
-    setGoogleBusy(true);
-    setCloudStatus("");
-    try {
-      const result = await testDriveConnection();
       setCloudStatus(
-        result.visibleFileCount > 0
-          ? "اتصال Google Drive موفق است؛ API پاسخ معتبر داد."
-          : "اتصال Google Drive موفق است؛ API پاسخ داد، اما فایلی در محدوده دسترسی برنامه فهرست نشد."
+        "اتصال گوگل لغو شد؛ فایل‌های پشتیبان در Drive باقی می‌مانند.",
       );
     } catch (error) {
-      setCloudStatus(error instanceof Error ? error.message : "آزمایش اتصال Google Drive ناموفق بود.");
+      setCloudStatus(
+        error instanceof Error ? error.message : "قطع اتصال انجام نشد.",
+      );
     } finally {
       setGoogleBusy(false);
     }
@@ -126,9 +120,11 @@ export default function SettingsScreen({
       const snapshot = await nativeDb.exportCloudSnapshot();
       const file = await createDriveBackup(snapshot);
       setLatestBackupLabel(file.name);
-      setCloudStatus("نسخه پشتیبان در پوشه HadiFactor ذخیره شد.");
+      setCloudStatus("نسخه پشتیبان در پوشه Hadman Factor ذخیره شد.");
     } catch (error) {
-      setCloudStatus(error instanceof Error ? error.message : "ساخت نسخه پشتیبان انجام نشد.");
+      setCloudStatus(
+        error instanceof Error ? error.message : "ساخت نسخه پشتیبان انجام نشد.",
+      );
     } finally {
       setGoogleBusy(false);
     }
@@ -144,48 +140,51 @@ export default function SettingsScreen({
       setExportAlertModal({
         show: true,
         title: "بازیابی نسخه پشتیبان",
-        message: "اطلاعات فعلی این گوشی با آخرین نسخه پشتیبان Google Drive جایگزین می‌شود. پیش از ادامه از اطلاعات فعلی نسخه پشتیبان بگیرید. ادامه می‌دهید؟",
+        message:
+          "اطلاعات فعلی این گوشی با آخرین نسخه پشتیبان Google Drive جایگزین می‌شود. پیش از ادامه از اطلاعات فعلی نسخه پشتیبان بگیرید. ادامه می‌دهید؟",
         confirm: true,
         confirmText: "بازیابی اطلاعات",
         cancelText: "انصراف",
       });
     } catch (error) {
-      setCloudStatus(error instanceof Error ? error.message : "نسخه پشتیبان پیدا نشد.");
+      setCloudStatus(
+        error instanceof Error ? error.message : "نسخه پشتیبان پیدا نشد.",
+      );
     } finally {
       setGoogleBusy(false);
     }
   };
 
   const loadSettings = async () => {
-      try {
-        const storedTheme = await AsyncStorage.getItem("invoiceTheme");
-        const storedName = await AsyncStorage.getItem("companyName");
-        const storedAddress = await AsyncStorage.getItem("companyAddress");
-        const storedPhone = await AsyncStorage.getItem("companyPhone");
-        const storedCode = await AsyncStorage.getItem("companyEconomicCode");
-        const storedLogo = await AsyncStorage.getItem("companyLogo");
-        const storedSeal = await AsyncStorage.getItem("companySeal");
-        const storedSignature = await AsyncStorage.getItem("companySignature");
+    try {
+      const storedTheme = await AsyncStorage.getItem("invoiceTheme");
+      const storedName = await AsyncStorage.getItem("companyName");
+      const storedAddress = await AsyncStorage.getItem("companyAddress");
+      const storedPhone = await AsyncStorage.getItem("companyPhone");
+      const storedCode = await AsyncStorage.getItem("companyEconomicCode");
+      const storedLogo = await AsyncStorage.getItem("companyLogo");
+      const storedSeal = await AsyncStorage.getItem("companySeal");
+      const storedSignature = await AsyncStorage.getItem("companySignature");
 
-        if (storedTheme) setTheme(storedTheme);
-        if (storedName) setCompanyName(storedName);
-        if (storedAddress) setCompanyAddress(storedAddress);
-        if (storedPhone) setCompanyPhone(storedPhone);
-        if (storedCode) setEconomicCode(storedCode);
-        if (storedLogo) setLogoPreview(storedLogo);
-        if (storedSeal) setSealPreview(storedSeal);
-        if (storedSignature) setSignaturePreview(storedSignature);
-      } catch (e) {
-        console.error("Failed to load settings.");
-      }
-    };
+      if (storedTheme) setTheme(storedTheme);
+      if (storedName) setCompanyName(storedName);
+      if (storedAddress) setCompanyAddress(storedAddress);
+      if (storedPhone) setCompanyPhone(storedPhone);
+      if (storedCode) setEconomicCode(storedCode);
+      if (storedLogo) setLogoPreview(storedLogo);
+      if (storedSeal) setSealPreview(storedSeal);
+      if (storedSignature) setSignaturePreview(storedSignature);
+    } catch (e) {
+      console.error("Failed to load settings.");
+    }
+  };
 
   useEffect(() => {
     loadSettings();
   }, []);
 
   const handleClose = () => {
-      onNavigate(returnScreen);
+    onNavigate(returnScreen);
   };
 
   const handleSave = async () => {
@@ -199,8 +198,10 @@ export default function SettingsScreen({
       else await AsyncStorage.removeItem("companyLogo");
       if (sealPreview) await AsyncStorage.setItem("companySeal", sealPreview);
       else await AsyncStorage.removeItem("companySeal");
-      if (signaturePreview) await AsyncStorage.setItem("companySignature", signaturePreview);
+      if (signaturePreview)
+        await AsyncStorage.setItem("companySignature", signaturePreview);
       else await AsyncStorage.removeItem("companySignature");
+      await nativeDb.requestCloudBackup();
 
       setExportAlertModal({
         show: true,
@@ -209,7 +210,11 @@ export default function SettingsScreen({
         success: true,
       });
     } catch (e) {
-      setExportAlertModal({ show: true, title: "خطا", message: "مشکلی در ذخیره اطلاعات پیش آمد." });
+      setExportAlertModal({
+        show: true,
+        title: "خطا",
+        message: "مشکلی در ذخیره اطلاعات پیش آمد.",
+      });
     }
   };
 
@@ -238,7 +243,11 @@ export default function SettingsScreen({
         await onDataRestored();
         setCloudStatus("بازیابی اطلاعات از Google Drive با موفقیت انجام شد.");
       } catch (error) {
-        setCloudStatus(error instanceof Error ? error.message : "بازیابی نسخه پشتیبان انجام نشد.");
+        setCloudStatus(
+          error instanceof Error
+            ? error.message
+            : "بازیابی نسخه پشتیبان انجام نشد.",
+        );
       } finally {
         setGoogleBusy(false);
       }
@@ -255,8 +264,14 @@ export default function SettingsScreen({
     setSignaturePreview(null);
     try {
       await AsyncStorage.multiRemove([
-        "invoiceTheme", "companyName", "companyAddress", "companyPhone",
-        "companyEconomicCode", "companyLogo", "companySeal", "companySignature",
+        "invoiceTheme",
+        "companyName",
+        "companyAddress",
+        "companyPhone",
+        "companyEconomicCode",
+        "companyLogo",
+        "companySeal",
+        "companySignature",
       ]);
     } catch {
       setExportAlertModal({
@@ -319,36 +334,66 @@ export default function SettingsScreen({
             end={{ x: 1, y: 1 }}
             style={styles.card}
           >
-            <CustomText style={styles.label}>اتصال به Google Drive و پشتیبان‌گیری</CustomText>
+            <CustomText style={styles.label}>
+              اتصال به Google Drive و پشتیبان‌گیری
+            </CustomText>
             <CustomText style={styles.cloudInfo}>
-              نسخه‌های پشتیبان در حساب Google خودتان و پوشه HadiFactor ذخیره می‌شوند.
-              برنامه رمز گوگل را دریافت نمی‌کند و توکن را در AsyncStorage نمی‌نویسد.
+              پس از اتصال حساب گوگل، نسخه پشتیبان اطلاعات شما به‌صورت خودکار در همان فایل داخل پوشه Hadman Factor به‌روزرسانی می‌شود.
+              برای بازیابی اطلاعات، حساب گوگل خود را متصل کنید.
             </CustomText>
             {googleAccount ? (
               <>
                 <CustomText style={styles.cloudAccount}>
-                  متصل: {googleAccount.email ?? googleAccount.name ?? "حساب گوگل"}
+                  متصل:{" "}
+                  {googleAccount.email ?? googleAccount.name ?? "حساب گوگل"}
                 </CustomText>
-                <TouchableOpacity style={styles.cloudButtonSecondary} onPress={handleTestDriveConnection} disabled={googleBusy}>
-                  <CustomText style={styles.btnText}>{googleBusy ? "در حال بررسی..." : "تست اتصال Google Drive"}</CustomText>
+                <TouchableOpacity
+                  style={styles.cloudButton}
+                  onPress={handleCreateDriveBackup}
+                  disabled={googleBusy}
+                >
+                  <CustomText style={styles.btnText}>
+                    {googleBusy
+                      ? "لطفاً صبر کنید..."
+                      : "تهیه نسخه پشتیبان در Drive"}
+                  </CustomText>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.cloudButton} onPress={handleCreateDriveBackup} disabled={googleBusy}>
-                  <CustomText style={styles.btnText}>{googleBusy ? "لطفاً صبر کنید..." : "تهیه نسخه پشتیبان در Drive"}</CustomText>
+                <TouchableOpacity
+                  style={styles.cloudButtonSecondary}
+                  onPress={handlePrepareRestore}
+                  disabled={googleBusy}
+                >
+                  <CustomText style={styles.btnText}>
+                    بازیابی آخرین نسخه پشتیبان
+                  </CustomText>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.cloudButtonSecondary} onPress={handlePrepareRestore} disabled={googleBusy}>
-                  <CustomText style={styles.btnText}>بازیابی آخرین نسخه پشتیبان</CustomText>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.cloudDisconnect} onPress={handleGoogleDisconnect} disabled={googleBusy}>
+                <TouchableOpacity
+                  style={styles.cloudDisconnect}
+                  onPress={handleGoogleDisconnect}
+                  disabled={googleBusy}
+                >
                   <CustomText style={styles.btnText}>قطع اتصال گوگل</CustomText>
                 </TouchableOpacity>
               </>
             ) : (
-              <TouchableOpacity style={styles.cloudButton} onPress={handleGoogleConnect} disabled={googleBusy}>
-                <CustomText style={styles.btnText}>{googleBusy ? "در حال اتصال..." : "اتصال حساب گوگل"}</CustomText>
+              <TouchableOpacity
+                style={styles.cloudButton}
+                onPress={handleGoogleConnect}
+                disabled={googleBusy}
+              >
+                <CustomText style={styles.btnText}>
+                  {googleBusy ? "در حال اتصال..." : "اتصال حساب گوگل"}
+                </CustomText>
               </TouchableOpacity>
             )}
-            {!!latestBackupLabel && <CustomText style={styles.cloudInfo}>فایل نسخه پشتیبان: {latestBackupLabel}</CustomText>}
-            {!!cloudStatus && <CustomText style={styles.cloudStatus}>{cloudStatus}</CustomText>}
+            {!!latestBackupLabel && (
+              <CustomText style={styles.cloudInfo}>
+                فایل نسخه پشتیبان: {latestBackupLabel}
+              </CustomText>
+            )}
+            {!!cloudStatus && (
+              <CustomText style={styles.cloudStatus}>{cloudStatus}</CustomText>
+            )}
           </LinearGradient>
 
           <LinearGradient
@@ -408,30 +453,63 @@ export default function SettingsScreen({
             </View>
 
             <View style={styles.inputGroup}>
-              <ImageUpload label="لوگوی شرکت :" value={logoPreview} onChange={setLogoPreview}
-                onError={(message) => setExportAlertModal({ show: true, title: "خطا", message })}
-                imageWidth={130} imageHeight={130} uploadText="انتخاب لوگو" removeText="حذف لوگو"
-                uploadButtonStyle={styles.logoUploadBtn} uploadTextStyle={styles.logoUploadText}
-                previewBoxStyle={styles.logoPreviewBox} imageStyle={styles.logoPreviewImg}
-                removeButtonStyle={styles.logoRemoveBtn} removeTextStyle={styles.logoRemoveBtnText}
+              <ImageUpload
+                label="لوگوی شرکت :"
+                value={logoPreview}
+                onChange={setLogoPreview}
+                onError={(message) =>
+                  setExportAlertModal({ show: true, title: "خطا", message })
+                }
+                imageWidth={130}
+                imageHeight={130}
+                uploadText="انتخاب لوگو"
+                removeText="حذف لوگو"
+                uploadButtonStyle={styles.logoUploadBtn}
+                uploadTextStyle={styles.logoUploadText}
+                previewBoxStyle={styles.logoPreviewBox}
+                imageStyle={styles.logoPreviewImg}
+                removeButtonStyle={styles.logoRemoveBtn}
+                removeTextStyle={styles.logoRemoveBtnText}
               />
             </View>
             <View style={styles.inputGroup}>
-              <ImageUpload label="مهر شرکت :" value={sealPreview} onChange={setSealPreview}
-                onError={(message) => setExportAlertModal({ show: true, title: "خطا", message })}
-                imageWidth={130} imageHeight={130} uploadText="انتخاب مهر" removeText="حذف مهر"
-                uploadButtonStyle={styles.logoUploadBtn} uploadTextStyle={styles.logoUploadText}
-                previewBoxStyle={styles.logoPreviewBox} imageStyle={styles.logoPreviewImg}
-                removeButtonStyle={styles.logoRemoveBtn} removeTextStyle={styles.logoRemoveBtnText}
+              <ImageUpload
+                label="مهر شرکت :"
+                value={sealPreview}
+                onChange={setSealPreview}
+                onError={(message) =>
+                  setExportAlertModal({ show: true, title: "خطا", message })
+                }
+                imageWidth={130}
+                imageHeight={130}
+                uploadText="انتخاب مهر"
+                removeText="حذف مهر"
+                uploadButtonStyle={styles.logoUploadBtn}
+                uploadTextStyle={styles.logoUploadText}
+                previewBoxStyle={styles.logoPreviewBox}
+                imageStyle={styles.logoPreviewImg}
+                removeButtonStyle={styles.logoRemoveBtn}
+                removeTextStyle={styles.logoRemoveBtnText}
               />
             </View>
             <View style={styles.inputGroup}>
-              <ImageUpload label="امضای مدیر :" value={signaturePreview} onChange={setSignaturePreview}
-                onError={(message) => setExportAlertModal({ show: true, title: "خطا", message })}
-                imageWidth={130} imageHeight={130} uploadText="انتخاب امضا" removeText="حذف امضا"
-                uploadButtonStyle={styles.logoUploadBtn} uploadTextStyle={styles.logoUploadText}
-                previewBoxStyle={styles.logoPreviewBox} imageStyle={styles.logoPreviewImg}
-                removeButtonStyle={styles.logoRemoveBtn} removeTextStyle={styles.logoRemoveBtnText}
+              <ImageUpload
+                label="امضای مدیر :"
+                value={signaturePreview}
+                onChange={setSignaturePreview}
+                onError={(message) =>
+                  setExportAlertModal({ show: true, title: "خطا", message })
+                }
+                imageWidth={130}
+                imageHeight={130}
+                uploadText="انتخاب امضا"
+                removeText="حذف امضا"
+                uploadButtonStyle={styles.logoUploadBtn}
+                uploadTextStyle={styles.logoUploadText}
+                previewBoxStyle={styles.logoPreviewBox}
+                imageStyle={styles.logoPreviewImg}
+                removeButtonStyle={styles.logoRemoveBtn}
+                removeTextStyle={styles.logoRemoveBtnText}
               />
             </View>
           </LinearGradient>
@@ -512,22 +590,46 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   cloudInfo: {
-    color: "#eaf6fc", fontSize: 12, lineHeight: 21, textAlign: "right", marginVertical: 7,
+    color: "#eaf6fc",
+    fontSize: 12,
+    lineHeight: 21,
+    textAlign: "right",
+    marginVertical: 7,
   },
   cloudAccount: {
-    color: "#ffffff", fontSize: 13, fontWeight: "700", textAlign: "right", marginVertical: 8,
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "right",
+    marginVertical: 8,
   },
   cloudStatus: {
-    color: "#ffffff", fontSize: 12, lineHeight: 20, textAlign: "right", marginTop: 10,
+    color: "#ffffff",
+    fontSize: 12,
+    lineHeight: 20,
+    textAlign: "right",
+    marginTop: 10,
   },
   cloudButton: {
-    backgroundColor: "#10b981", borderRadius: 10, paddingVertical: 11, alignItems: "center", marginTop: 9,
+    backgroundColor: "#10b981",
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: "center",
+    marginTop: 9,
   },
   cloudButtonSecondary: {
-    backgroundColor: "#2563eb", borderRadius: 10, paddingVertical: 11, alignItems: "center", marginTop: 9,
+    backgroundColor: "#2563eb",
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: "center",
+    marginTop: 9,
   },
   cloudDisconnect: {
-    backgroundColor: "#dc2626", borderRadius: 10, paddingVertical: 10, alignItems: "center", marginTop: 9,
+    backgroundColor: "#dc2626",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    marginTop: 9,
   },
   input: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",

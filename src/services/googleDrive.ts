@@ -2,8 +2,9 @@ import { getDriveAccessToken, refreshDriveAccessToken } from "./googleAuth";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 const DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
-const APP_FOLDER_NAME = "HadiFactor";
+const APP_FOLDER_NAME = "Hadman Factor";
 const BACKUP_PREFIX = "HadmanFactorBackup_";
+const BACKUP_FILE_NAME = "HadmanFactorBackup.json";
 
 type DriveFile = { id: string; name: string; modifiedTime?: string; size?: string };
 type CloudRecord = { id: string | number; customerId?: string | number; items?: unknown };
@@ -18,23 +19,18 @@ export type CloudSnapshot = {
 };
 
 async function authorizedFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  console.info("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step: "drive_api_start", method: init.method ?? "GET" }));
   let token = await getDriveAccessToken();
   const send = () => fetch(url, {
     ...init,
     headers: { ...(init.headers ?? {}), Authorization: `Bearer ${token}` },
   });
   let response = await send();
-  console.info("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step: "drive_api_response", status: response.status }));
   if (response.status === 401) {
-    console.info("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step: "drive_token_refresh", started: true }));
     token = await refreshDriveAccessToken(token);
     response = await send();
-    console.info("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step: "drive_api_retry_response", status: response.status }));
   }
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    console.error("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step: "drive_api_failed", status: response.status }));
     throw new Error(`Google Drive خطای ${response.status} برگرداند.${detail ? " " + detail.slice(0, 240) : ""}`);
   }
   return response;
@@ -53,7 +49,7 @@ async function ensureAppFolder(): Promise<string> {
     body: JSON.stringify({ name: APP_FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" }),
   });
   const folder = (await created.json()) as DriveFile;
-  if (!folder.id) throw new Error("پوشه HadiFactor در Google Drive ساخته نشد.");
+  if (!folder.id) throw new Error("پوشه Hadman Factor در Google Drive ساخته نشد.");
   return folder.id;
 }
 
@@ -66,19 +62,52 @@ export async function testDriveConnection(): Promise<{ visibleFileCount: number 
   return { visibleFileCount: Array.isArray(result.files) ? result.files.length : 0 };
 }
 
+async function findBackupToUpdate(folderId: string): Promise<DriveFile | null> {
+  const fixedQuery = `'${folderId}' in parents and name = '${BACKUP_FILE_NAME}' and trashed = false`;
+  const fixedUrl = `${DRIVE_API}/files?q=${encodeURIComponent(fixedQuery)}&pageSize=10&fields=files(id,name,modifiedTime,size)`;
+  const fixedResponse = await authorizedFetch(fixedUrl);
+  const fixed = ((await fixedResponse.json()) as { files?: DriveFile[] }).files?.[0];
+  if (fixed?.id) return fixed;
+
+  const legacyQuery = `'${folderId}' in parents and name contains '${BACKUP_PREFIX}' and trashed = false`;
+  const legacyUrl = `${DRIVE_API}/files?q=${encodeURIComponent(legacyQuery)}&pageSize=100&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,size)`;
+  const legacyResponse = await authorizedFetch(legacyUrl);
+  return ((await legacyResponse.json()) as { files?: DriveFile[] }).files?.[0] ?? null;
+}
+
 export async function createDriveBackup(snapshot: CloudSnapshot): Promise<DriveFile> {
   const folderId = await ensureAppFolder();
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const existing = await findBackupToUpdate(folderId);
   const metadata = {
-    name: `${BACKUP_PREFIX}${stamp}.json`,
+    name: BACKUP_FILE_NAME,
     mimeType: "application/json",
-    parents: [folderId],
     appProperties: { application: "hadman-factor", schemaVersion: String(snapshot.schemaVersion) },
   };
+
+  if (existing?.id) {
+    if (existing.name !== BACKUP_FILE_NAME) {
+      await authorizedFetch(`${DRIVE_API}/files/${encodeURIComponent(existing.id)}?fields=id,name`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: BACKUP_FILE_NAME }),
+      });
+    }
+
+    const updated = await authorizedFetch(
+      `${DRIVE_UPLOAD_API}/files/${encodeURIComponent(existing.id)}?uploadType=media&fields=id,name,modifiedTime,size`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(snapshot),
+      },
+    );
+    return (await updated.json()) as DriveFile;
+  }
+
   const boundary = `hadman_factor_${Date.now()}`;
   const body =
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
-    JSON.stringify(metadata) +
+    JSON.stringify({ ...metadata, parents: [folderId] }) +
     `\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
     JSON.stringify(snapshot) +
     `\r\n--${boundary}--`;
@@ -92,10 +121,16 @@ export async function createDriveBackup(snapshot: CloudSnapshot): Promise<DriveF
 
 async function findLatestBackup(): Promise<DriveFile> {
   const folderId = await ensureAppFolder();
-  const query = `'${folderId}' in parents and name contains '${BACKUP_PREFIX}' and trashed = false`;
-  const url = `${DRIVE_API}/files?q=${encodeURIComponent(query)}&pageSize=100&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,size)`;
-  const response = await authorizedFetch(url);
-  const latest = ((await response.json()) as { files?: DriveFile[] }).files?.[0];
+  const fixedQuery = `'${folderId}' in parents and name = '${BACKUP_FILE_NAME}' and trashed = false`;
+  const fixedUrl = `${DRIVE_API}/files?q=${encodeURIComponent(fixedQuery)}&pageSize=10&fields=files(id,name,modifiedTime,size)`;
+  const fixedResponse = await authorizedFetch(fixedUrl);
+  const fixed = ((await fixedResponse.json()) as { files?: DriveFile[] }).files?.[0];
+  if (fixed?.id) return fixed;
+
+  const legacyQuery = `'${folderId}' in parents and name contains '${BACKUP_PREFIX}' and trashed = false`;
+  const legacyUrl = `${DRIVE_API}/files?q=${encodeURIComponent(legacyQuery)}&pageSize=100&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,size)`;
+  const legacyResponse = await authorizedFetch(legacyUrl);
+  const latest = ((await legacyResponse.json()) as { files?: DriveFile[] }).files?.[0];
   if (!latest?.id) throw new Error("هنوز نسخه پشتیبانی در Google Drive وجود ندارد.");
   return latest;
 }
