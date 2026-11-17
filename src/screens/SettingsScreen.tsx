@@ -21,7 +21,7 @@ import CustomTextInput from "../components/CustomTextInput";
 import { toPersianDigits } from "../utils/numberUtils";
 import { connectGoogleAccount, disconnectGoogleAccount, getConnectedGoogleAccount } from "../services/googleAuth";
 import type { GoogleAccount } from "../services/googleAuth";
-import { createDriveBackup, downloadLatestDriveBackup, getLatestDriveBackupInfo } from "../services/googleDrive";
+import { createDriveBackup, downloadLatestDriveBackup, getLatestDriveBackupInfo, testDriveConnection } from "../services/googleDrive";
 import { nativeDb } from "../services/database";
 
 interface SettingsScreenProps {
@@ -97,6 +97,23 @@ export default function SettingsScreen({
       setCloudStatus("اتصال گوگل لغو شد؛ فایل‌های پشتیبان در Drive باقی می‌مانند.");
     } catch (error) {
       setCloudStatus(error instanceof Error ? error.message : "قطع اتصال انجام نشد.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const handleTestDriveConnection = async () => {
+    setGoogleBusy(true);
+    setCloudStatus("");
+    try {
+      const result = await testDriveConnection();
+      setCloudStatus(
+        result.visibleFileCount > 0
+          ? "اتصال Google Drive موفق است؛ API پاسخ معتبر داد."
+          : "اتصال Google Drive موفق است؛ API پاسخ داد، اما فایلی در محدوده دسترسی برنامه فهرست نشد."
+      );
+    } catch (error) {
+      setCloudStatus(error instanceof Error ? error.message : "آزمایش اتصال Google Drive ناموفق بود.");
     } finally {
       setGoogleBusy(false);
     }
@@ -312,6 +329,9 @@ export default function SettingsScreen({
                 <CustomText style={styles.cloudAccount}>
                   متصل: {googleAccount.email ?? googleAccount.name ?? "حساب گوگل"}
                 </CustomText>
+                <TouchableOpacity style={styles.cloudButtonSecondary} onPress={handleTestDriveConnection} disabled={googleBusy}>
+                  <CustomText style={styles.btnText}>{googleBusy ? "در حال بررسی..." : "تست اتصال Google Drive"}</CustomText>
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.cloudButton} onPress={handleCreateDriveBackup} disabled={googleBusy}>
                   <CustomText style={styles.btnText}>{googleBusy ? "لطفاً صبر کنید..." : "تهیه نسخه پشتیبان در Drive"}</CustomText>
                 </TouchableOpacity>

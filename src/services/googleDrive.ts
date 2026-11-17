@@ -57,6 +57,15 @@ async function ensureAppFolder(): Promise<string> {
   return folder.id;
 }
 
+/** Read-only connectivity check. Does not create, update, or delete Drive files. */
+export async function testDriveConnection(): Promise<{ visibleFileCount: number }> {
+  const response = await authorizedFetch(
+    `${DRIVE_API}/files?pageSize=1&fields=files(id,mimeType)`,
+  );
+  const result = (await response.json()) as { files?: unknown[] };
+  return { visibleFileCount: Array.isArray(result.files) ? result.files.length : 0 };
+}
+
 export async function createDriveBackup(snapshot: CloudSnapshot): Promise<DriveFile> {
   const folderId = await ensureAppFolder();
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");

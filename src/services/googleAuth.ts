@@ -110,17 +110,10 @@ export async function connectGoogleAccount(): Promise<GoogleAccount> {
     await GoogleOneTapSignIn.checkPlayServices();
     logGoogleStep("play_services", { success: true });
 
-    stage = "signIn";
-    let response = await GoogleOneTapSignIn.signIn();
-    trail.push(`signIn=${response.type}`);
-    logGoogleStep("account_selection", { responseType: response.type });
-
-    if (isNoSavedCredentialFoundResponse(response)) {
-      stage = "createAccount";
-      response = await GoogleOneTapSignIn.createAccount();
-      trail.push(`createAccount=${response.type}`);
-      logGoogleStep("create_account", { responseType: response.type });
-    }
+    stage = "createAccount";
+    let response = await GoogleOneTapSignIn.createAccount();
+    trail.push(`createAccount=${response.type}`);
+    logGoogleStep("create_account", { responseType: response.type });
 
     if (isNoSavedCredentialFoundResponse(response)) {
       stage = "presentExplicitSignIn";
