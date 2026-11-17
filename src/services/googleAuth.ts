@@ -28,6 +28,11 @@ function configureGoogleSignIn(): void {
   configured = true;
 }
 
+/** Logs only non-sensitive checkpoints; never log tokens, account identifiers, or profile data. */
+function logGoogleStep(step: string, details: Record<string, string | number | boolean>): void {
+  console.info("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step, ...details }));
+}
+
 function getErrorDetails(error: unknown): {
   name: string;
   code: string;
@@ -99,24 +104,29 @@ export async function connectGoogleAccount(): Promise<GoogleAccount> {
 
   try {
     configureGoogleSignIn();
+    logGoogleStep("configure", { success: true, driveScopeConfigured: true });
 
     stage = "checkPlayServices";
     await GoogleOneTapSignIn.checkPlayServices();
+    logGoogleStep("play_services", { success: true });
 
     stage = "signIn";
     let response = await GoogleOneTapSignIn.signIn();
     trail.push(`signIn=${response.type}`);
+    logGoogleStep("account_selection", { responseType: response.type });
 
     if (isNoSavedCredentialFoundResponse(response)) {
       stage = "createAccount";
       response = await GoogleOneTapSignIn.createAccount();
       trail.push(`createAccount=${response.type}`);
+      logGoogleStep("create_account", { responseType: response.type });
     }
 
     if (isNoSavedCredentialFoundResponse(response)) {
       stage = "presentExplicitSignIn";
       response = await GoogleOneTapSignIn.presentExplicitSignIn();
       trail.push(`presentExplicitSignIn=${response.type}`);
+      logGoogleStep("explicit_sign_in", { responseType: response.type });
     }
 
     if (isCancelledResponse(response)) {
@@ -135,20 +145,53 @@ export async function connectGoogleAccount(): Promise<GoogleAccount> {
       );
     }
 
-    if (!response.data.scopes.includes(DRIVE_FILE_SCOPE)) {
+    const hasUserId = Boolean(response.data.user?.id);
+    const hasEmail = Boolean(response.data.user?.email);
+    const hasIdToken = Boolean(response.data.idToken);
+    logGoogleStep("identity", {
+      success: hasUserId,
+      hasEmail,
+      hasIdToken,
+      grantedScopeCount: response.data.scopes.length,
+    });
+    if (!hasUserId) {
+      throwGoogleDiagnostic(stage, trail, new Error("ورود موفق گزارش شد اما شناسه کاربر خالی است."));
+    }
+
+    const hasDriveScope = response.data.scopes.includes(DRIVE_FILE_SCOPE);
+    logGoogleStep("drive_scope_before_request", { granted: hasDriveScope });
+
+    if (!hasDriveScope) {
       stage = "requestScopes(drive.file)";
+      logGoogleStep("drive_scope_request", { started: true });
       const authorization = await GoogleOneTapSignIn.requestScopes([
         DRIVE_FILE_SCOPE,
       ]);
-      if (!authorization.accessToken) {
+      const hasAccessToken = Boolean(authorization.accessToken);
+      logGoogleStep("request_scopes_result", {
+        accessTokenReceived: hasAccessToken,
+        serverAuthCodeReceived: Boolean(authorization.serverAuthCode),
+      });
+      if (!hasAccessToken) {
         throwGoogleDiagnostic(
           stage,
           trail,
-          new Error("درخواست مجوز Drive موفق بود اما accessToken خالی است."),
+          new Error("درخواست مجوز Drive انجام شد اما Access Token خالی برگشت."),
         );
+      }
+    } else {
+      stage = "getTokens";
+      const tokens = await GoogleOneTapSignIn.getTokens();
+      logGoogleStep("get_tokens_result", {
+        accessTokenReceived: Boolean(tokens.accessToken),
+        idTokenReceived: Boolean(tokens.idToken),
+      });
+      if (!tokens.accessToken) {
+        throwGoogleDiagnostic(stage, trail, new Error("getTokens اجرا شد اما Access Token خالی برگشت."));
       }
     }
 
+    logGoogleStep("connect_complete", { success: true });
     return response.data.user;
   } catch (error) {
     if (
@@ -157,6 +200,7 @@ export async function connectGoogleAccount(): Promise<GoogleAccount> {
     ) {
       throw error;
     }
+    logGoogleStep("connect_failed", { stage, trail: trail.join(" -> ") });
     throwGoogleDiagnostic(stage, trail, error);
   }
 }
@@ -164,14 +208,30 @@ export async function connectGoogleAccount(): Promise<GoogleAccount> {
 export async function getDriveAccessToken(): Promise<string> {
   configureGoogleSignIn();
   const session = GoogleOneTapSignIn.getCurrentUser();
-  if (!session) throw new Error("ابتدا حساب گوگل را متصل کنید.");
+  if (!session) {
+    logGoogleStep("drive_token_session", { sessionFound: false });
+    throw new Error("ابتدا حساب گوگل را متصل کنید.");
+  }
+
+  logGoogleStep("drive_token_session", {
+    sessionFound: true,
+    driveScopeGranted: session.scopes.includes(DRIVE_FILE_SCOPE),
+    grantedScopeCount: session.scopes.length,
+  });
 
   if (!session.scopes.includes(DRIVE_FILE_SCOPE)) {
+    logGoogleStep("drive_token_scope_request", { started: true });
     const authorization = await GoogleOneTapSignIn.requestScopes([DRIVE_FILE_SCOPE]);
-    if (!authorization.accessToken) throw new Error("مجوز Google Drive در دسترس نیست.");
-    return authorization.accessToken;
+    const accessTokenReceived = Boolean(authorization.accessToken);
+    logGoogleStep("drive_token_scope_result", { accessTokenReceived });
+    if (!accessTokenReceived) throw new Error("مجوز Google Drive در دسترس نیست.");
+    return authorization.accessToken as string;
   }
-  return (await GoogleOneTapSignIn.getTokens()).accessToken;
+  const tokens = await GoogleOneTapSignIn.getTokens();
+  const accessTokenReceived = Boolean(tokens.accessToken);
+  logGoogleStep("drive_get_tokens_result", { accessTokenReceived });
+  if (!accessTokenReceived) throw new Error("Google توکن دسترسی خالی برگرداند.");
+  return tokens.accessToken;
 }
 
 export async function refreshDriveAccessToken(staleToken: string): Promise<string> {

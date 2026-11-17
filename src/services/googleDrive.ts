@@ -18,18 +18,23 @@ export type CloudSnapshot = {
 };
 
 async function authorizedFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  console.info("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step: "drive_api_start", method: init.method ?? "GET" }));
   let token = await getDriveAccessToken();
   const send = () => fetch(url, {
     ...init,
     headers: { ...(init.headers ?? {}), Authorization: `Bearer ${token}` },
   });
   let response = await send();
+  console.info("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step: "drive_api_response", status: response.status }));
   if (response.status === 401) {
+    console.info("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step: "drive_token_refresh", started: true }));
     token = await refreshDriveAccessToken(token);
     response = await send();
+    console.info("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step: "drive_api_retry_response", status: response.status }));
   }
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
+    console.error("[HADEX_GOOGLE_DIAG]", JSON.stringify({ step: "drive_api_failed", status: response.status }));
     throw new Error(`Google Drive خطای ${response.status} برگرداند.${detail ? " " + detail.slice(0, 240) : ""}`);
   }
   return response;
