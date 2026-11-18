@@ -1,7 +1,7 @@
 import * as SQLite from "expo-sqlite";
 import { AppState } from "react-native";
 import { getConnectedGoogleAccount } from "./googleAuth";
-import { createDriveBackup } from "./googleDrive";
+import { createDriveBackup, getLatestDriveBackupInfo } from "./googleDrive";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 
@@ -21,6 +21,7 @@ const INVOICE_KEY = "@hadi_factor_invoices";
 const PAYMENT_KEY = "@hadi_factor_payments_v2";
 const LEGACY_PAYMENT_KEY = "@hadi_factor_payments";
 const AUTO_BACKUP_PENDING_KEY = "@hadman_factor_drive_backup_pending";
+const CLOUD_BACKUP_HOLD_KEY = "@hadman_factor_drive_backup_hold";
 
 class NativeDatabaseService {
   private database: SQLite.SQLiteDatabase | null = null;
@@ -336,8 +337,86 @@ class NativeDatabaseService {
     }
   }
 
+  async initializeCloudBackupSafety(): Promise<void> {
+    const savedHold = await AsyncStorage.getItem(CLOUD_BACKUP_HOLD_KEY).catch(() => null);
+    if (savedHold !== null) {
+      if (savedHold === "0") await this.retryPendingCloudBackup();
+      return;
+    }
+
+    if (!this.isGoogleDriveConnected()) {
+      await this.setCloudBackupHold(false);
+      return;
+    }
+
+    // Unknown first-run state: pause uploads until Drive has been checked.
+    await this.setCloudBackupHold(true);
+    try {
+      const remoteBackup = await getLatestDriveBackupInfo();
+      if (remoteBackup) return;
+
+      await this.setCloudBackupHold(false);
+      const snapshot = await this.exportCloudSnapshot();
+      const hasLocalData =
+        snapshot.customers.length > 0 ||
+        snapshot.invoices.length > 0 ||
+        snapshot.payments.length > 0 ||
+        Object.entries(snapshot.settings).some(
+          ([key, value]) => key !== "invoiceTheme" && value.trim().length > 0,
+        );
+      if (hasLocalData) await this.requestCloudBackup();
+    } catch {
+      // Keep the hold on network/auth errors. A later explicit check can safely resume.
+    }
+  }
+
+  async setCloudBackupHold(hold: boolean): Promise<void> {
+    await AsyncStorage.setItem(CLOUD_BACKUP_HOLD_KEY, hold ? "1" : "0");
+    if (hold) {
+      if (this.autoBackupTimer) clearTimeout(this.autoBackupTimer);
+      this.autoBackupTimer = null;
+      this.autoBackupRequested = false;
+    }
+  }
+
+  async releaseCloudBackupHold(): Promise<void> {
+    await this.setCloudBackupHold(false);
+  }
+
+  async completeCloudRestore(): Promise<void> {
+    await AsyncStorage.removeItem(AUTO_BACKUP_PENDING_KEY);
+    await this.setCloudBackupHold(false);
+  }
+
+  async completeCloudBackup(uploadedSnapshot: {
+    customers: JsonRecord[];
+    invoices: JsonRecord[];
+    payments: JsonRecord[];
+    settings: Record<string, string>;
+    nextCustomerCode: string | null;
+  }): Promise<void> {
+    await this.setCloudBackupHold(false);
+    const currentSnapshot = await this.exportCloudSnapshot();
+    const getContent = (snapshot: typeof currentSnapshot | typeof uploadedSnapshot) =>
+      JSON.stringify({
+        customers: snapshot.customers,
+        invoices: snapshot.invoices,
+        payments: snapshot.payments,
+        settings: snapshot.settings,
+        nextCustomerCode: snapshot.nextCustomerCode,
+      });
+
+    if (getContent(currentSnapshot) !== getContent(uploadedSnapshot)) {
+      await this.requestCloudBackup();
+      return;
+    }
+    await AsyncStorage.removeItem(AUTO_BACKUP_PENDING_KEY);
+  }
+
   async requestCloudBackup(): Promise<void> {
     await AsyncStorage.setItem(AUTO_BACKUP_PENDING_KEY, "1").catch(() => undefined);
+    const hold = await AsyncStorage.getItem(CLOUD_BACKUP_HOLD_KEY).catch(() => null);
+    if (hold !== "0") return;
     this.autoBackupRequested = true;
     if (!this.isGoogleDriveConnected()) return;
     if (this.autoBackupRunning) return;
@@ -357,7 +436,8 @@ class NativeDatabaseService {
   }
 
   private async flushAutomaticBackup(): Promise<void> {
-    if (this.autoBackupRunning || !this.isGoogleDriveConnected()) return;
+    const hold = await AsyncStorage.getItem(CLOUD_BACKUP_HOLD_KEY).catch(() => null);
+    if (hold !== "0" || this.autoBackupRunning || !this.isGoogleDriveConnected()) return;
     this.autoBackupRunning = true;
     try {
       do {
@@ -472,6 +552,7 @@ class NativeDatabaseService {
 
   async restoreCloudSnapshot(snapshot: {
     schemaVersion: 1;
+    createdAt: string;
     customers: JsonRecord[];
     invoices: JsonRecord[];
     payments: JsonRecord[];
@@ -480,37 +561,33 @@ class NativeDatabaseService {
   }): Promise<void> {
     if (
       snapshot.schemaVersion !== 1 ||
+      typeof snapshot.createdAt !== "string" ||
       !Array.isArray(snapshot.customers) ||
       !Array.isArray(snapshot.invoices) ||
       !Array.isArray(snapshot.payments) ||
       !snapshot.settings ||
-      typeof snapshot.settings !== "object"
+      typeof snapshot.settings !== "object" ||
+      Array.isArray(snapshot.settings) ||
+      !Object.values(snapshot.settings).every((value) => typeof value === "string") ||
+      !(snapshot.nextCustomerCode === null || typeof snapshot.nextCustomerCode === "string") ||
+      ![...snapshot.customers, ...snapshot.invoices, ...snapshot.payments].every(
+        (record) =>
+          Boolean(record) &&
+          typeof record === "object" &&
+          (typeof record.id === "string" || typeof record.id === "number"),
+      )
     ) throw new Error("ساختار نسخه پشتیبان معتبر نیست.");
 
-    const db = await this.getDatabase();
-    await db.withTransactionAsync(async () => {
-      await db.runAsync("DELETE FROM invoices");
-      await db.runAsync("DELETE FROM payments");
-      await db.runAsync("DELETE FROM customers");
-      for (const customer of snapshot.customers) {
-        await this.upsertInTransaction(db, "customers", customer);
-      }
-      for (const invoice of snapshot.invoices) {
-        await this.upsertInTransaction(db, "invoices", invoice);
-      }
-      for (const payment of snapshot.payments) {
-        await this.upsertInTransaction(db, "payments", payment);
-      }
-      if (snapshot.nextCustomerCode) {
-        await db.runAsync(
-          "INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)",
-          NEXT_CUSTOMER_CODE_KEY,
-          snapshot.nextCustomerCode,
-        );
-      } else {
-        await db.runAsync("DELETE FROM app_meta WHERE key = ?", NEXT_CUSTOMER_CODE_KEY);
-      }
-    });
+    const hasRecoverableContent =
+      snapshot.customers.length > 0 ||
+      snapshot.invoices.length > 0 ||
+      snapshot.payments.length > 0 ||
+      Object.entries(snapshot.settings).some(
+        ([key, value]) => key !== "invoiceTheme" && value.trim().length > 0,
+      );
+    if (!hasRecoverableContent) {
+      throw new Error("نسخه پشتیبان اطلاعات قابل بازیابی ندارد؛ برای جلوگیری از پاک‌شدن اطلاعات فعلی، بازیابی متوقف شد.");
+    }
 
     const settingKeys = [
       "invoiceTheme",
@@ -522,12 +599,57 @@ class NativeDatabaseService {
       "companySeal",
       "companySignature",
     ];
-    await AsyncStorage.multiRemove(settingKeys);
-    const settingEntries = Object.entries(snapshot.settings).filter(
-      (entry): entry is [string, string] =>
-        settingKeys.includes(entry[0]) && typeof entry[1] === "string",
-    );
-    if (settingEntries.length) await AsyncStorage.multiSet(settingEntries);
+    const db = await this.getDatabase();
+    const previousSnapshot = await this.exportCloudSnapshot();
+    const previousSettings = await AsyncStorage.multiGet(settingKeys);
+
+    const applyDatabaseSnapshot = async (data: typeof previousSnapshot) => {
+      await db.withTransactionAsync(async () => {
+        await db.runAsync("DELETE FROM invoices");
+        await db.runAsync("DELETE FROM payments");
+        await db.runAsync("DELETE FROM customers");
+        for (const customer of data.customers) {
+          await this.upsertInTransaction(db, "customers", customer);
+        }
+        for (const invoice of data.invoices) {
+          await this.upsertInTransaction(db, "invoices", invoice);
+        }
+        for (const payment of data.payments) {
+          await this.upsertInTransaction(db, "payments", payment);
+        }
+        if (data.nextCustomerCode) {
+          await db.runAsync(
+            "INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)",
+            NEXT_CUSTOMER_CODE_KEY,
+            data.nextCustomerCode,
+          );
+        } else {
+          await db.runAsync("DELETE FROM app_meta WHERE key = ?", NEXT_CUSTOMER_CODE_KEY);
+        }
+      });
+    };
+
+    await applyDatabaseSnapshot(snapshot);
+    try {
+      await AsyncStorage.multiRemove(settingKeys);
+      const settingEntries = Object.entries(snapshot.settings).filter(
+        (entry): entry is [string, string] =>
+          settingKeys.includes(entry[0]) && typeof entry[1] === "string",
+      );
+      if (settingEntries.length) await AsyncStorage.multiSet(settingEntries);
+    } catch (restoreError) {
+      try {
+        await applyDatabaseSnapshot(previousSnapshot);
+        await AsyncStorage.multiRemove(settingKeys);
+        const rollbackSettings = previousSettings.filter(
+          (entry): entry is [string, string] => entry[1] !== null,
+        );
+        if (rollbackSettings.length) await AsyncStorage.multiSet(rollbackSettings);
+      } catch {
+        throw new Error("بازیابی تنظیمات کامل نشد و بازگردانی اطلاعات قبلی نیز با خطا روبه‌رو شد. قبل از ادامه، اطلاعات دستگاه را بررسی کنید.");
+      }
+      throw restoreError;
+    }
   }
 
   async getMeta(key: string): Promise<string | null> {
@@ -558,4 +680,4 @@ AppState.addEventListener("change", (state) => {
   }
 });
 
-void nativeDb.retryPendingCloudBackup();
+void nativeDb.initializeCloudBackupSafety();

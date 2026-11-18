@@ -99,7 +99,7 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments '-DCMAKE_OBJECT_PATH_MAX=240'
+                arguments '-DCMAKE_OBJECT_PATH_MAX=180'
             }
         }
     }

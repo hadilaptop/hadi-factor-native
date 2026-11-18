@@ -70,11 +70,32 @@ export default function SettingsScreen({
   });
 
   useEffect(() => {
-    try {
-      setGoogleAccount(getConnectedGoogleAccount());
-    } catch {
-      setGoogleAccount(null);
-    }
+    let mounted = true;
+    const loadGoogleBackupInfo = async () => {
+      const account = getConnectedGoogleAccount();
+      if (!mounted) return;
+      setGoogleAccount(account);
+      if (!account) return;
+
+      try {
+        const backup = await getLatestDriveBackupInfo();
+        if (!mounted) return;
+        if (backup) {
+          setLatestBackupLabel(backup.name);
+          setCloudStatus("نسخه پشتیبان در Google Drive موجود است. برای دریافت اطلاعات روی «بازیابی» بزنید.");
+        } else {
+          setLatestBackupLabel("");
+          setCloudStatus("هنوز نسخه پشتیبانی در Google Drive وجود ندارد.");
+        }
+      } catch (error) {
+        if (mounted) {
+          setCloudStatus(error instanceof Error ? error.message : "بررسی Google Drive انجام نشد.");
+        }
+      }
+    };
+
+    void loadGoogleBackupInfo();
+    return () => { mounted = false; };
   }, []);
 
   const handleGoogleConnect = async () => {
@@ -83,8 +104,30 @@ export default function SettingsScreen({
     try {
       const account = await connectGoogleAccount();
       setGoogleAccount(account);
-      await nativeDb.requestCloudBackup();
-      setCloudStatus("حساب گوگل متصل شد؛ پشتیبان‌گیری خودکار فعال است.");
+      await nativeDb.setCloudBackupHold(true);
+
+      const backup = await getLatestDriveBackupInfo();
+      if (backup) {
+        setLatestBackupLabel(backup.name);
+        setCloudStatus("حساب گوگل متصل شد و نسخه پشتیبان قبلی پیدا شد. برای جلوگیری از جایگزینی اطلاعات، ابتدا آن را بازیابی کنید.");
+      } else {
+        setLatestBackupLabel("");
+        await nativeDb.releaseCloudBackupHold();
+        const snapshot = await nativeDb.exportCloudSnapshot();
+        const hasLocalData =
+          snapshot.customers.length > 0 ||
+          snapshot.invoices.length > 0 ||
+          snapshot.payments.length > 0 ||
+          Object.entries(snapshot.settings).some(
+            ([key, value]) => key !== "invoiceTheme" && value.trim().length > 0,
+          );
+        if (hasLocalData) await nativeDb.requestCloudBackup();
+        setCloudStatus(
+          hasLocalData
+            ? "حساب متصل شد؛ اولین نسخه پشتیبان اطلاعات محلی ساخته می‌شود."
+            : "حساب متصل شد؛ هنوز اطلاعاتی برای پشتیبان‌گیری وجود ندارد.",
+        );
+      }
     } catch (error) {
       setCloudStatus(
         error instanceof Error ? error.message : "اتصال حساب گوگل انجام نشد.",
@@ -118,12 +161,27 @@ export default function SettingsScreen({
     setCloudStatus("");
     try {
       const snapshot = await nativeDb.exportCloudSnapshot();
+      const existing = await getLatestDriveBackupInfo();
+      if (existing) {
+        const remote = await downloadLatestDriveBackup();
+        const localCustomerIds = new Set(snapshot.customers.map((record) => String(record.id)));
+        const localInvoiceIds = new Set(snapshot.invoices.map((record) => String(record.id)));
+        const localPaymentIds = new Set(snapshot.payments.map((record) => String(record.id)));
+        const remoteDataIsPreserved =
+          remote.customers.every((record) => localCustomerIds.has(String(record.id))) &&
+          remote.invoices.every((record) => localInvoiceIds.has(String(record.id))) &&
+          remote.payments.every((record) => localPaymentIds.has(String(record.id)));
+        if (!remoteDataIsPreserved) {
+          throw new Error("نسخه Google Drive رکوردهایی دارد که در این دستگاه موجود نیستند. برای جلوگیری از حذف اطلاعات قبلی، ابتدا «بازیابی آخرین نسخه پشتیبان» را انجام دهید.");
+        }
+      }
       const file = await createDriveBackup(snapshot);
+      await nativeDb.completeCloudBackup(snapshot);
       setLatestBackupLabel(file.name);
-      setCloudStatus("نسخه پشتیبان در پوشه Hadman Factor ذخیره شد.");
+      setCloudStatus("نسخه پشتیبان در همان فایل Hadman Factor با موفقیت به‌روزرسانی شد.");
     } catch (error) {
       setCloudStatus(
-        error instanceof Error ? error.message : "ساخت نسخه پشتیبان انجام نشد.",
+        error instanceof Error ? error.message : "تهیه نسخه پشتیبان انجام نشد.",
       );
     } finally {
       setGoogleBusy(false);
@@ -135,13 +193,16 @@ export default function SettingsScreen({
     setCloudStatus("");
     try {
       const backup = await getLatestDriveBackupInfo();
+      if (!backup) {
+        throw new Error("هنوز نسخه پشتیبانی در Google Drive وجود ندارد.");
+      }
       setLatestBackupLabel(backup.name);
       setPendingConfirmAction("restore");
       setExportAlertModal({
         show: true,
         title: "بازیابی نسخه پشتیبان",
         message:
-          "اطلاعات فعلی این گوشی با آخرین نسخه پشتیبان Google Drive جایگزین می‌شود. پیش از ادامه از اطلاعات فعلی نسخه پشتیبان بگیرید. ادامه می‌دهید؟",
+          "اطلاعات فعلی این دستگاه با اطلاعات نسخه پشتیبان Google Drive جایگزین می‌شود. قبل از ادامه مطمئن شوید نسخه موردنظر را انتخاب کرده‌اید.",
         confirm: true,
         confirmText: "بازیابی اطلاعات",
         cancelText: "انصراف",
@@ -238,9 +299,19 @@ export default function SettingsScreen({
     if (action === "restore") {
       setGoogleBusy(true);
       try {
+        await nativeDb.setCloudBackupHold(true);
         const snapshot = await downloadLatestDriveBackup();
+        const hasBackupContent =
+          snapshot.customers.length > 0 ||
+          snapshot.invoices.length > 0 ||
+          snapshot.payments.length > 0 ||
+          Object.entries(snapshot.settings ?? {}).some(
+            ([key, value]) => key !== "invoiceTheme" && typeof value === "string" && value.trim().length > 0,
+          );
+        if (!hasBackupContent) throw new Error("این فایل پشتیبان خالی است؛ برای جلوگیری از جایگزینی اطلاعات، بازیابی متوقف شد.");
         await nativeDb.restoreCloudSnapshot(snapshot);
         await onDataRestored();
+        await nativeDb.completeCloudRestore();
         setCloudStatus("بازیابی اطلاعات از Google Drive با موفقیت انجام شد.");
       } catch (error) {
         setCloudStatus(

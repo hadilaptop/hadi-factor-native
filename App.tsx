@@ -14,6 +14,7 @@ import CustomerFullStatement from './src/screens/CustomerFullStatement';
 import CustomerPayment from './src/screens/CustomerPayment';
 import BottomNav from './src/components/BottomNav';
 import { Customer, getCustomers, saveCustomer, deleteCustomer } from './src/storage/customerStorage';
+import { nativeDb } from './src/services/database';
 import { getInvoices, deleteInvoice, StoredInvoice } from './src/storage/invoiceStorage';
 import {
   getPayments,
@@ -65,6 +66,7 @@ export default function App() {
         setCustomers(savedCustomers);
         setInvoices(savedInvoices);
         setPayments(savedPayments);
+        await nativeDb.initializeCloudBackupSafety();
       } catch (error) {
         console.error("خطا در بارگذاری مشتری‌ها:", error);
       } finally {

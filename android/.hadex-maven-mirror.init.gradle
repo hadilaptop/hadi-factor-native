@@ -1,0 +1,8 @@
+gradle.beforeProject { project ->
+    project.repositories.maven {
+        url = uri("https://maven.aliyun.com/repository/google")
+    }
+    project.buildscript.repositories.maven {
+        url = uri("https://maven.aliyun.com/repository/google")
+    }
+}

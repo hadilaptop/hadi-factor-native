@@ -76,6 +76,16 @@ async function findBackupToUpdate(folderId: string): Promise<DriveFile | null> {
 }
 
 export async function createDriveBackup(snapshot: CloudSnapshot): Promise<DriveFile> {
+  const hasRecords =
+    snapshot.customers.length > 0 ||
+    snapshot.invoices.length > 0 ||
+    snapshot.payments.length > 0;
+  const hasCompanySettings = Object.entries(snapshot.settings ?? {}).some(
+    ([key, value]) => key !== "invoiceTheme" && typeof value === "string" && value.trim().length > 0,
+  );
+  if (!hasRecords && !hasCompanySettings) {
+    throw new Error("اطلاعات محلی برای تهیه نسخه پشتیبان کافی نیست؛ برای محافظت از نسخه قبلی، آپلود متوقف شد.");
+  }
   const folderId = await ensureAppFolder();
   const existing = await findBackupToUpdate(folderId);
   const metadata = {
@@ -119,7 +129,7 @@ export async function createDriveBackup(snapshot: CloudSnapshot): Promise<DriveF
   return (await uploaded.json()) as DriveFile;
 }
 
-async function findLatestBackup(): Promise<DriveFile> {
+async function findLatestBackup(): Promise<DriveFile | null> {
   const folderId = await ensureAppFolder();
   const fixedQuery = `'${folderId}' in parents and name = '${BACKUP_FILE_NAME}' and trashed = false`;
   const fixedUrl = `${DRIVE_API}/files?q=${encodeURIComponent(fixedQuery)}&pageSize=10&fields=files(id,name,modifiedTime,size)`;
@@ -131,25 +141,35 @@ async function findLatestBackup(): Promise<DriveFile> {
   const legacyUrl = `${DRIVE_API}/files?q=${encodeURIComponent(legacyQuery)}&pageSize=100&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,size)`;
   const legacyResponse = await authorizedFetch(legacyUrl);
   const latest = ((await legacyResponse.json()) as { files?: DriveFile[] }).files?.[0];
-  if (!latest?.id) throw new Error("هنوز نسخه پشتیبانی در Google Drive وجود ندارد.");
+  if (!latest?.id) return null;
   return latest;
 }
 
-export async function getLatestDriveBackupInfo(): Promise<DriveFile> {
+export async function getLatestDriveBackupInfo(): Promise<DriveFile | null> {
   return findLatestBackup();
 }
 
 export async function downloadLatestDriveBackup(): Promise<CloudSnapshot> {
   const backup = await findLatestBackup();
+  if (!backup) throw new Error("هنوز نسخه پشتیبانی در Google Drive وجود ندارد.");
   const response = await authorizedFetch(`${DRIVE_API}/files/${encodeURIComponent(backup.id)}?alt=media`);
   const snapshot = (await response.json()) as CloudSnapshot;
   if (
     snapshot?.schemaVersion !== 1 ||
+    typeof snapshot.createdAt !== "string" ||
     !Array.isArray(snapshot.customers) ||
     !Array.isArray(snapshot.invoices) ||
     !Array.isArray(snapshot.payments) ||
     !snapshot.settings ||
     typeof snapshot.settings !== "object" ||
+    Array.isArray(snapshot.settings) ||
+    !Object.values(snapshot.settings).every((value) => typeof value === "string") ||
+    ![...snapshot.customers, ...snapshot.invoices, ...snapshot.payments].every(
+      (record) =>
+        Boolean(record) &&
+        typeof record === "object" &&
+        (typeof record.id === "string" || typeof record.id === "number"),
+    ) ||
     !(snapshot.nextCustomerCode === null || typeof snapshot.nextCustomerCode === "string")
   ) {
     throw new Error("فایل پشتیبان معتبر نیست یا با نسخه فعلی برنامه سازگار نیست.");
