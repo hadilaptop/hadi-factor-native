@@ -107,7 +107,7 @@ export async function createDriveBackup(snapshot: CloudSnapshot): Promise<DriveF
       `${DRIVE_UPLOAD_API}/files/${encodeURIComponent(existing.id)}?uploadType=media&fields=id,name,modifiedTime,size`,
       {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json; charset=UTF-8" },
         body: JSON.stringify(snapshot),
       },
     );

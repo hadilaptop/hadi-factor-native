@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   Modal,
@@ -21,6 +22,7 @@ type ExportAlertModalProps = {
   message: string;
   success?: boolean;
   error?: boolean;
+  loading?: boolean;
   confirm?: boolean;
   confirmText?: string;
   cancelText?: string;
@@ -35,6 +37,7 @@ export default function ExportAlertModal({
   message,
   success = false,
   error = false,
+  loading = false,
   confirm = false,
   confirmText = "تأیید",
   cancelText = "انصراف",
@@ -77,7 +80,7 @@ export default function ExportAlertModal({
       visible={modalVisible}
       transparent
       animationType="none"
-      onRequestClose={onClose}
+      onRequestClose={loading ? () => {} : onClose}
     >
       <View style={[styles.overlay, { paddingTop: insets.top + ALERT_TOP }]}>
         <Animated.View
@@ -111,7 +114,9 @@ export default function ExportAlertModal({
                 error && styles.errorIconBg,
               ]}
             >
-              {success ? (
+              {loading ? (
+                <ActivityIndicator size="large" color="#ffffff" />
+              ) : success ? (
                 <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M22 11.08V12a10 10 0 1 1-5.93-9.14"
@@ -144,7 +149,7 @@ export default function ExportAlertModal({
               {title}
             </CustomText>
             <CustomText style={styles.message}>{message}</CustomText>
-            {confirm ? (
+            {loading ? null : confirm ? (
               <View style={styles.buttonRow}>
                 <TouchableOpacity
                   activeOpacity={0.8}

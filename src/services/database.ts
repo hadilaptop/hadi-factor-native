@@ -1,7 +1,7 @@
 import * as SQLite from "expo-sqlite";
 import { AppState } from "react-native";
 import { getConnectedGoogleAccount } from "./googleAuth";
-import { createDriveBackup, getLatestDriveBackupInfo } from "./googleDrive";
+import { createDriveBackup } from "./googleDrive";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 
@@ -22,6 +22,7 @@ const PAYMENT_KEY = "@hadi_factor_payments_v2";
 const LEGACY_PAYMENT_KEY = "@hadi_factor_payments";
 const AUTO_BACKUP_PENDING_KEY = "@hadman_factor_drive_backup_pending";
 const CLOUD_BACKUP_HOLD_KEY = "@hadman_factor_drive_backup_hold";
+const AUTO_BACKUP_ENABLED_KEY = "@hadman_factor_drive_auto_backup_enabled";
 
 class NativeDatabaseService {
   private database: SQLite.SQLiteDatabase | null = null;
@@ -157,25 +158,46 @@ class NativeDatabaseService {
     });
   }
 
-  private async persistImage(image?: string | null): Promise<string | null | undefined> {
-    if (!image?.startsWith("data:image/")) return image;
+  async persistImage(image?: string | null): Promise<string | null | undefined> {
+    if (!image) return image;
+    if (image.startsWith("data:image/")) {
+      const match = image.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,([\s\S]+)$/);
+      if (!match || !FileSystem.documentDirectory) {
+        throw new Error("ذخیره فایل تصویر در حافظه محلی امکان‌پذیر نیست.");
+      }
 
-    const match = image.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,([\s\S]+)$/);
-    if (!match || !FileSystem.documentDirectory) {
-      throw new Error("ذخیره فایل تصویر در حافظه محلی امکان‌پذیر نیست.");
+      const mimeSubtype = match[1].toLowerCase().split("+")[0];
+      const extension =
+        mimeSubtype === "jpeg"
+          ? "jpg"
+          : mimeSubtype.replace(/[^a-z0-9]/g, "") || "jpg";
+      const fileUri = `${FileSystem.documentDirectory}image-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+
+      await FileSystem.writeAsStringAsync(fileUri, match[2], {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return fileUri;
     }
 
-    const mimeSubtype = match[1].toLowerCase().split("+")[0];
-    const extension =
-      mimeSubtype === "jpeg"
-        ? "jpg"
-        : mimeSubtype.replace(/[^a-z0-9]/g, "") || "jpg";
-    const fileUri = `${FileSystem.documentDirectory}image-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+    // Keep ImagePicker cache images in permanent app storage.
+    if (
+      image.startsWith("file://") &&
+      FileSystem.documentDirectory &&
+      !image.startsWith(FileSystem.documentDirectory)
+    ) {
+      const sourceInfo = await FileSystem.getInfoAsync(image);
+      if (!sourceInfo.exists) return image;
 
-    await FileSystem.writeAsStringAsync(fileUri, match[2], {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    return fileUri;
+      const extension = image.split("?")[0].split(".").pop()?.toLowerCase() ?? "jpg";
+      const safeExtension = ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(extension)
+        ? extension
+        : "jpg";
+      const destination = `${FileSystem.documentDirectory}image-${Date.now()}-${Math.random().toString(36).slice(2)}.${safeExtension}`;
+      await FileSystem.copyAsync({ from: image, to: destination });
+      return destination;
+    }
+
+    return image;
   }
 
   private async normalizeRecordImages(
@@ -338,36 +360,34 @@ class NativeDatabaseService {
   }
 
   async initializeCloudBackupSafety(): Promise<void> {
+    let enabled = await AsyncStorage.getItem(AUTO_BACKUP_ENABLED_KEY).catch(() => null);
     const savedHold = await AsyncStorage.getItem(CLOUD_BACKUP_HOLD_KEY).catch(() => null);
-    if (savedHold !== null) {
-      if (savedHold === "0") await this.retryPendingCloudBackup();
+
+    // Migrate users who completed a Drive operation before the persistent
+    // auto-backup flag was introduced.
+    const account = getConnectedGoogleAccount();
+    if (enabled !== "1" && account) {
+      const previousCompletion = await AsyncStorage.getItem(
+        "cloudOperationCompleted:" + (account.email ?? "default"),
+      ).catch(() => null);
+      if (previousCompletion === "true") {
+        await AsyncStorage.setItem(AUTO_BACKUP_ENABLED_KEY, "1");
+        enabled = "1";
+      }
+    }
+
+    // Automatic backup stays disabled until the user completes one of the
+    // explicit Google Drive actions from Settings.
+    if (enabled !== "1") {
+      if (savedHold !== "1") await this.setCloudBackupHold(true);
       return;
     }
 
-    if (!this.isGoogleDriveConnected()) {
-      await this.setCloudBackupHold(false);
-      return;
-    }
+    if (!this.isGoogleDriveConnected()) return;
 
-    // Unknown first-run state: pause uploads until Drive has been checked.
-    await this.setCloudBackupHold(true);
-    try {
-      const remoteBackup = await getLatestDriveBackupInfo();
-      if (remoteBackup) return;
-
-      await this.setCloudBackupHold(false);
-      const snapshot = await this.exportCloudSnapshot();
-      const hasLocalData =
-        snapshot.customers.length > 0 ||
-        snapshot.invoices.length > 0 ||
-        snapshot.payments.length > 0 ||
-        Object.entries(snapshot.settings).some(
-          ([key, value]) => key !== "invoiceTheme" && value.trim().length > 0,
-        );
-      if (hasLocalData) await this.requestCloudBackup();
-    } catch {
-      // Keep the hold on network/auth errors. A later explicit check can safely resume.
-    }
+    // A previously approved setup remains active across app restarts.
+    if (savedHold !== "0") await this.setCloudBackupHold(false);
+    await this.retryPendingCloudBackup();
   }
 
   async setCloudBackupHold(hold: boolean): Promise<void> {
@@ -383,7 +403,13 @@ class NativeDatabaseService {
     await this.setCloudBackupHold(false);
   }
 
+  async isCloudBackupHoldActive(): Promise<boolean> {
+    const hold = await AsyncStorage.getItem(CLOUD_BACKUP_HOLD_KEY).catch(() => null);
+    return hold !== "0";
+  }
+
   async completeCloudRestore(): Promise<void> {
+    await AsyncStorage.setItem(AUTO_BACKUP_ENABLED_KEY, "1");
     await AsyncStorage.removeItem(AUTO_BACKUP_PENDING_KEY);
     await this.setCloudBackupHold(false);
   }
@@ -395,6 +421,7 @@ class NativeDatabaseService {
     settings: Record<string, string>;
     nextCustomerCode: string | null;
   }): Promise<void> {
+    await AsyncStorage.setItem(AUTO_BACKUP_ENABLED_KEY, "1");
     await this.setCloudBackupHold(false);
     const currentSnapshot = await this.exportCloudSnapshot();
     const getContent = (snapshot: typeof currentSnapshot | typeof uploadedSnapshot) =>
@@ -414,6 +441,9 @@ class NativeDatabaseService {
   }
 
   async requestCloudBackup(): Promise<void> {
+    const enabled = await AsyncStorage.getItem(AUTO_BACKUP_ENABLED_KEY).catch(() => null);
+    if (enabled !== "1") return;
+
     await AsyncStorage.setItem(AUTO_BACKUP_PENDING_KEY, "1").catch(() => undefined);
     const hold = await AsyncStorage.getItem(CLOUD_BACKUP_HOLD_KEY).catch(() => null);
     if (hold !== "0") return;
@@ -472,6 +502,34 @@ class NativeDatabaseService {
       this.getAll<JsonRecord>("payments"),
     ]);
 
+    const encodeImageForBackup = async (value: string, label: string): Promise<string> => {
+      if (value.startsWith("data:image/")) return value;
+      if (!value.startsWith("file://")) {
+        if (value.startsWith("content://")) {
+          throw new Error("تصویر «" + label + "» در قالب قابل پشتیبان‌گیری نیست؛ لطفاً تصویر را دوباره انتخاب و ذخیره کنید.");
+        }
+        return value;
+      }
+
+      const extension = value.split("?")[0].split(".").pop()?.toLowerCase() ?? "jpg";
+      const supportedExtensions = ["jpg", "jpeg", "png", "webp", "gif", "bmp"];
+      if (!supportedExtensions.includes(extension)) {
+        throw new Error("فرمت تصویر «" + label + "» برای نسخه پشتیبان پشتیبانی نمی‌شود.");
+      }
+
+      const info = await FileSystem.getInfoAsync(value);
+      if (!info.exists) {
+        throw new Error("فایل تصویر «" + label + "» در حافظه گوشی پیدا نشد؛ لطفاً آن را دوباره انتخاب کنید.");
+      }
+
+      const subtype = extension === "jpg" ? "jpeg" : extension;
+      const base64 = await FileSystem.readAsStringAsync(value, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      if (!base64) throw new Error("خواندن تصویر «" + label + "» ناموفق بود.");
+      return "data:image/" + subtype + ";base64," + base64;
+    };
+
     const encodeImages = async (table: EntityTable, record: JsonRecord): Promise<JsonRecord> => {
       const copy = { ...record } as JsonRecord & Record<string, unknown>;
       const fields = table === "customers"
@@ -482,20 +540,8 @@ class NativeDatabaseService {
 
       for (const field of fields) {
         const value = copy[field];
-        if (
-          typeof value !== "string" ||
-          !value.startsWith("file://") ||
-          !FileSystem.documentDirectory ||
-          !value.startsWith(FileSystem.documentDirectory)
-        ) continue;
-
-        const extension = value.split("?")[0].split(".").pop()?.toLowerCase() ?? "jpg";
-        if (!["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(extension)) continue;
-        const subtype = extension === "jpg" ? "jpeg" : extension;
-        const base64 = await FileSystem.readAsStringAsync(value, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        copy[field] = `data:image/${subtype};base64,${base64}`;
+        if (typeof value !== "string" || !value) continue;
+        copy[field] = await encodeImageForBackup(value, field);
       }
       return copy;
     };
@@ -520,23 +566,10 @@ class NativeDatabaseService {
     const settings: Record<string, string> = {};
     for (const [key, value] of storedSettings) {
       if (value == null) continue;
-      let savedValue = value;
-      if (
-        ["companyLogo", "companySeal", "companySignature"].includes(key) &&
-        value.startsWith("file://") &&
-        FileSystem.documentDirectory &&
-        value.startsWith(FileSystem.documentDirectory)
-      ) {
-        const extension = value.split("?")[0].split(".").pop()?.toLowerCase() ?? "jpg";
-        if (["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(extension)) {
-          const subtype = extension === "jpg" ? "jpeg" : extension;
-          const base64 = await FileSystem.readAsStringAsync(value, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          savedValue = `data:image/${subtype};base64,${base64}`;
-        }
-      }
-      settings[key] = savedValue;
+      const isCompanyImage = ["companyLogo", "companySeal", "companySignature"].includes(key);
+      settings[key] = isCompanyImage
+        ? await encodeImageForBackup(value, key)
+        : value;
     }
 
     return {
@@ -632,9 +665,18 @@ class NativeDatabaseService {
     await applyDatabaseSnapshot(snapshot);
     try {
       await AsyncStorage.multiRemove(settingKeys);
-      const settingEntries = Object.entries(snapshot.settings).filter(
-        (entry): entry is [string, string] =>
-          settingKeys.includes(entry[0]) && typeof entry[1] === "string",
+      const settingEntries = await Promise.all(
+        Object.entries(snapshot.settings)
+          .filter(
+            (entry): entry is [string, string] =>
+              settingKeys.includes(entry[0]) && typeof entry[1] === "string",
+          )
+          .map(async ([key, value]): Promise<[string, string]> => [
+            key,
+            ["companyLogo", "companySeal", "companySignature"].includes(key)
+              ? (await this.persistImage(value)) ?? ""
+              : value,
+          ]),
       );
       if (settingEntries.length) await AsyncStorage.multiSet(settingEntries);
     } catch (restoreError) {
@@ -679,5 +721,3 @@ AppState.addEventListener("change", (state) => {
     void nativeDb.retryPendingCloudBackup();
   }
 });
-
-void nativeDb.initializeCloudBackupSafety();

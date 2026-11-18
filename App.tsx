@@ -60,13 +60,18 @@ export default function App() {
     }
     async function loadCustomers() {
       try {
-        const savedCustomers = await getCustomers();
-        const savedInvoices = await getInvoices();
-        const savedPayments = await getPayments();
+        // Load the device data first; cloud backup checks must not delay local startup.
+        const [savedCustomers, savedInvoices, savedPayments] = await Promise.all([
+          getCustomers(),
+          getInvoices(),
+          getPayments(),
+        ]);
         setCustomers(savedCustomers);
         setInvoices(savedInvoices);
         setPayments(savedPayments);
-        await nativeDb.initializeCloudBackupSafety();
+
+        // Resume an already-enabled pending backup in the background.
+        void nativeDb.initializeCloudBackupSafety().catch(() => undefined);
       } catch (error) {
         console.error("خطا در بارگذاری مشتری‌ها:", error);
       } finally {

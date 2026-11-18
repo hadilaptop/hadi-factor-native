@@ -46,13 +46,14 @@ export default function SettingsScreen({
   const [sealPreview, setSealPreview] = useState<string | null>(null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
   const [googleAccount, setGoogleAccount] = useState<GoogleAccount | null>(
-    null,
+    () => getConnectedGoogleAccount(),
   );
   const [googleBusy, setGoogleBusy] = useState(false);
-  const [cloudStatus, setCloudStatus] = useState("");
-  const [latestBackupLabel, setLatestBackupLabel] = useState("");
+  const [cloudOperationCompleted, setCloudOperationCompleted] = useState(false);
+  const [localDriveDataInitialized, setLocalDriveDataInitialized] = useState<boolean | null>(null);
+  const [cloudConflictPending, setCloudConflictPending] = useState(false);
   const [pendingConfirmAction, setPendingConfirmAction] = useState<
-    "reset" | "restore" | null
+    "reset" | "restore" | "createDrive" | "overwriteDrive" | "disconnect" | null
   >(null);
   const [exportAlertModal, setExportAlertModal] = useState<{
     show: boolean;
@@ -60,6 +61,7 @@ export default function SettingsScreen({
     message: string;
     success?: boolean;
     error?: boolean;
+    loading?: boolean;
     confirm?: boolean;
     confirmText?: string;
     cancelText?: string;
@@ -69,148 +71,164 @@ export default function SettingsScreen({
     message: "",
   });
 
+  const hasCloudSnapshotContent = (
+    snapshot: Awaited<ReturnType<typeof nativeDb.exportCloudSnapshot>>,
+  ): boolean =>
+    snapshot.customers.length > 0 ||
+    snapshot.invoices.length > 0 ||
+    snapshot.payments.length > 0 ||
+    Object.entries(snapshot.settings ?? {}).some(
+      ([key, value]) => key !== "invoiceTheme" && value.trim().length > 0,
+    );
+
+  const loadLocalDriveState = async () => {
+    const account = googleAccount;
+    if (!account) {
+      setCloudOperationCompleted(false);
+      setLocalDriveDataInitialized(null);
+      setCloudConflictPending(false);
+      return;
+    }
+
+    try {
+      const completionKey =
+        "cloudOperationCompleted:" + (account.email ?? "default");
+      const [localDataReady, completed] = await Promise.all([
+        AsyncStorage.getItem("localDriveDataInitialized"),
+        AsyncStorage.getItem(completionKey),
+      ]);
+      const isLocalDataReady =
+        localDataReady === "true" || completed === "true";
+      setLocalDriveDataInitialized(isLocalDataReady);
+      setCloudOperationCompleted(isLocalDataReady);
+      setCloudConflictPending(false);
+    } catch {
+      setLocalDriveDataInitialized(false);
+      setCloudOperationCompleted(false);
+      setCloudConflictPending(false);
+    }
+  };
+
   useEffect(() => {
-    let mounted = true;
-    const loadGoogleBackupInfo = async () => {
-      const account = getConnectedGoogleAccount();
-      if (!mounted) return;
-      setGoogleAccount(account);
-      if (!account) return;
-
-      try {
-        const backup = await getLatestDriveBackupInfo();
-        if (!mounted) return;
-        if (backup) {
-          setLatestBackupLabel(backup.name);
-          setCloudStatus("نسخه پشتیبان در Google Drive موجود است. برای دریافت اطلاعات روی «بازیابی» بزنید.");
-        } else {
-          setLatestBackupLabel("");
-          setCloudStatus("هنوز نسخه پشتیبانی در Google Drive وجود ندارد.");
-        }
-      } catch (error) {
-        if (mounted) {
-          setCloudStatus(error instanceof Error ? error.message : "بررسی Google Drive انجام نشد.");
-        }
-      }
-    };
-
-    void loadGoogleBackupInfo();
-    return () => { mounted = false; };
+    const timer = setTimeout(() => {
+      void loadLocalDriveState();
+    }, 300);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleGoogleConnect = async () => {
+    setLocalDriveDataInitialized(null);
     setGoogleBusy(true);
-    setCloudStatus("");
     try {
       const account = await connectGoogleAccount();
       setGoogleAccount(account);
-      await nativeDb.setCloudBackupHold(true);
-
-      const backup = await getLatestDriveBackupInfo();
-      if (backup) {
-        setLatestBackupLabel(backup.name);
-        setCloudStatus("حساب گوگل متصل شد و نسخه پشتیبان قبلی پیدا شد. برای جلوگیری از جایگزینی اطلاعات، ابتدا آن را بازیابی کنید.");
+      // Preserve local-first behavior for this device and resume the already
+      // enabled automatic backup without querying Drive for existing data.
+      const completionKey = `cloudOperationCompleted:${account.email ?? "default"}`;
+      const [localDataReady, completed] = await Promise.all([
+        AsyncStorage.getItem("localDriveDataInitialized"),
+        AsyncStorage.getItem(completionKey),
+      ]);
+      const isLocalDataReady =
+        localDataReady === "true" || completed === "true";
+      setLocalDriveDataInitialized(isLocalDataReady);
+      setCloudOperationCompleted(isLocalDataReady);
+      setCloudConflictPending(false);
+      if (isLocalDataReady) {
+        await AsyncStorage.setItem("localDriveDataInitialized", "true");
+        await nativeDb.initializeCloudBackupSafety();
       } else {
-        setLatestBackupLabel("");
-        await nativeDb.releaseCloudBackupHold();
-        const snapshot = await nativeDb.exportCloudSnapshot();
-        const hasLocalData =
-          snapshot.customers.length > 0 ||
-          snapshot.invoices.length > 0 ||
-          snapshot.payments.length > 0 ||
-          Object.entries(snapshot.settings).some(
-            ([key, value]) => key !== "invoiceTheme" && value.trim().length > 0,
-          );
-        if (hasLocalData) await nativeDb.requestCloudBackup();
-        setCloudStatus(
-          hasLocalData
-            ? "حساب متصل شد؛ اولین نسخه پشتیبان اطلاعات محلی ساخته می‌شود."
-            : "حساب متصل شد؛ هنوز اطلاعاتی برای پشتیبان‌گیری وجود ندارد.",
-        );
+        await nativeDb.setCloudBackupHold(true);
       }
-    } catch (error) {
-      setCloudStatus(
-        error instanceof Error ? error.message : "اتصال حساب گوگل انجام نشد.",
-      );
+    } catch {
+      setExportAlertModal({ show: true, title: "خطا", message: "خطا در ورود به حساب Google Drive", error: true });
     } finally {
       setGoogleBusy(false);
     }
   };
 
-  const handleGoogleDisconnect = async () => {
-    setGoogleBusy(true);
-    setCloudStatus("");
-    try {
-      await disconnectGoogleAccount();
-      setGoogleAccount(null);
-      setLatestBackupLabel("");
-      setCloudStatus(
-        "اتصال گوگل لغو شد؛ فایل‌های پشتیبان در Drive باقی می‌مانند.",
-      );
-    } catch (error) {
-      setCloudStatus(
-        error instanceof Error ? error.message : "قطع اتصال انجام نشد.",
-      );
-    } finally {
-      setGoogleBusy(false);
-    }
-  };
-
-  const handleCreateDriveBackup = async () => {
-    setGoogleBusy(true);
-    setCloudStatus("");
-    try {
-      const snapshot = await nativeDb.exportCloudSnapshot();
-      const existing = await getLatestDriveBackupInfo();
-      if (existing) {
-        const remote = await downloadLatestDriveBackup();
-        const localCustomerIds = new Set(snapshot.customers.map((record) => String(record.id)));
-        const localInvoiceIds = new Set(snapshot.invoices.map((record) => String(record.id)));
-        const localPaymentIds = new Set(snapshot.payments.map((record) => String(record.id)));
-        const remoteDataIsPreserved =
-          remote.customers.every((record) => localCustomerIds.has(String(record.id))) &&
-          remote.invoices.every((record) => localInvoiceIds.has(String(record.id))) &&
-          remote.payments.every((record) => localPaymentIds.has(String(record.id)));
-        if (!remoteDataIsPreserved) {
-          throw new Error("نسخه Google Drive رکوردهایی دارد که در این دستگاه موجود نیستند. برای جلوگیری از حذف اطلاعات قبلی، ابتدا «بازیابی آخرین نسخه پشتیبان» را انجام دهید.");
-        }
-      }
-      const file = await createDriveBackup(snapshot);
-      await nativeDb.completeCloudBackup(snapshot);
-      setLatestBackupLabel(file.name);
-      setCloudStatus("نسخه پشتیبان در همان فایل Hadman Factor با موفقیت به‌روزرسانی شد.");
-    } catch (error) {
-      setCloudStatus(
-        error instanceof Error ? error.message : "تهیه نسخه پشتیبان انجام نشد.",
-      );
-    } finally {
-      setGoogleBusy(false);
-    }
+  const handleGoogleDisconnect = () => {
+    setPendingConfirmAction("disconnect");
+    setExportAlertModal({
+      show: true,
+      title: "خروج از حساب Google Drive",
+      message: "آیا مطمئن هستید که می‌خواهید از حساب Google Drive خارج شوید؟",
+      confirm: true,
+      confirmText: "خروج از حساب",
+      cancelText: "انصراف",
+    });
   };
 
   const handlePrepareRestore = async () => {
+    setCloudOperationCompleted(false);
     setGoogleBusy(true);
-    setCloudStatus("");
+    setExportAlertModal({
+      show: true,
+      title: "در حال بررسی نسخه پشتیبان",
+      message: "لطفاً تا دریافت اطلاعات Google Drive صبر کنید.",
+      loading: true,
+    });
     try {
       const backup = await getLatestDriveBackupInfo();
       if (!backup) {
         throw new Error("هنوز نسخه پشتیبانی در Google Drive وجود ندارد.");
       }
-      setLatestBackupLabel(backup.name);
       setPendingConfirmAction("restore");
       setExportAlertModal({
         show: true,
-        title: "بازیابی نسخه پشتیبان",
+        title: "جایگزینی اطلاعات گوشی با نسخه Google Drive",
         message:
-          "اطلاعات فعلی این دستگاه با اطلاعات نسخه پشتیبان Google Drive جایگزین می‌شود. قبل از ادامه مطمئن شوید نسخه موردنظر را انتخاب کرده‌اید.",
+          "هشدار مهم: با تأیید، تمام اطلاعات فعلی این دستگاه از جمله مشتریان، فاکتورها، دریافتی‌ها، تصاویر و تنظیمات پاک می‌شود و نسخه Google Drive جایگزین آن خواهد شد. این عملیات قابل بازگشت نیست.",
         confirm: true,
         confirmText: "بازیابی اطلاعات",
         cancelText: "انصراف",
       });
     } catch (error) {
-      setCloudStatus(
-        error instanceof Error ? error.message : "نسخه پشتیبان پیدا نشد.",
-      );
+      setExportAlertModal({ show: true, title: "خطا", message: error instanceof Error ? error.message : "نسخه پشتیبان پیدا نشد.", error: true });
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const handlePrepareOverwriteDrive = async () => {
+    setCloudOperationCompleted(false);
+    setGoogleBusy(true);
+    setExportAlertModal({
+      show: true,
+      title: "در حال بررسی Google Drive",
+      message: "لطفاً تا بررسی وضعیت نسخه پشتیبان صبر کنید.",
+      loading: true,
+    });
+    try {
+      const backup = await getLatestDriveBackupInfo();
+      if (!backup) {
+        const snapshot = await nativeDb.exportCloudSnapshot();
+        if (!hasCloudSnapshotContent(snapshot)) {
+          throw new Error("اطلاعاتی برای تهیه نسخه پشتیبان وجود ندارد.");
+        }
+        setPendingConfirmAction("createDrive");
+        setExportAlertModal({
+          show: true,
+          title: "ایجاد نسخه پشتیبان",
+          message: "نسخه پشتیبان اطلاعات این دستگاه در Google Drive ایجاد شود؟",
+          confirm: true,
+          confirmText: "ایجاد نسخه پشتیبان",
+          cancelText: "انصراف",
+        });
+        return;
+      }
+      setPendingConfirmAction("overwriteDrive");
+      setExportAlertModal({
+        show: true,
+        title: "جایگزینی نسخه Google Drive با اطلاعات گوشی",
+        message:
+          "هشدار مهم: با تأیید، تمام محتوای فایل پشتیبان فعلی Google Drive پاک و با اطلاعات همین دستگاه جایگزین می‌شود. نسخه قبلی قابل بازیابی نخواهد بود.",
+        confirm: true,
+        confirmText: "جایگزینی کامل فایل Drive",
+        cancelText: "انصراف",
+      });
+    } catch (error) {
+      setExportAlertModal({ show: true, title: "خطا", message: error instanceof Error ? error.message : "بررسی نسخه Drive انجام نشد.", error: true });
     } finally {
       setGoogleBusy(false);
     }
@@ -218,30 +236,37 @@ export default function SettingsScreen({
 
   const loadSettings = async () => {
     try {
-      const storedTheme = await AsyncStorage.getItem("invoiceTheme");
-      const storedName = await AsyncStorage.getItem("companyName");
-      const storedAddress = await AsyncStorage.getItem("companyAddress");
-      const storedPhone = await AsyncStorage.getItem("companyPhone");
-      const storedCode = await AsyncStorage.getItem("companyEconomicCode");
-      const storedLogo = await AsyncStorage.getItem("companyLogo");
-      const storedSeal = await AsyncStorage.getItem("companySeal");
-      const storedSignature = await AsyncStorage.getItem("companySignature");
+      const storedSettings = new Map(
+        await AsyncStorage.multiGet([
+          "invoiceTheme",
+          "companyName",
+          "companyAddress",
+          "companyPhone",
+          "companyEconomicCode",
+          "companyLogo",
+          "companySeal",
+          "companySignature",
+        ]),
+      );
 
-      if (storedTheme) setTheme(storedTheme);
-      if (storedName) setCompanyName(storedName);
-      if (storedAddress) setCompanyAddress(storedAddress);
-      if (storedPhone) setCompanyPhone(storedPhone);
-      if (storedCode) setEconomicCode(storedCode);
-      if (storedLogo) setLogoPreview(storedLogo);
-      if (storedSeal) setSealPreview(storedSeal);
-      if (storedSignature) setSignaturePreview(storedSignature);
+      setTheme(storedSettings.get("invoiceTheme") ?? "blue");
+      setCompanyName(storedSettings.get("companyName") ?? "");
+      setCompanyAddress(storedSettings.get("companyAddress") ?? "");
+      setCompanyPhone(storedSettings.get("companyPhone") ?? "");
+      setEconomicCode(storedSettings.get("companyEconomicCode") ?? "");
+      setLogoPreview(storedSettings.get("companyLogo") ?? null);
+      setSealPreview(storedSettings.get("companySeal") ?? null);
+      setSignaturePreview(storedSettings.get("companySignature") ?? null);
     } catch (e) {
       console.error("Failed to load settings.");
     }
   };
 
   useEffect(() => {
-    loadSettings();
+    const timer = setTimeout(() => {
+      void loadSettings();
+    }, 300);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleClose = () => {
@@ -255,13 +280,21 @@ export default function SettingsScreen({
       await AsyncStorage.setItem("companyAddress", companyAddress.trim());
       await AsyncStorage.setItem("companyPhone", companyPhone.trim());
       await AsyncStorage.setItem("companyEconomicCode", economicCode.trim());
-      if (logoPreview) await AsyncStorage.setItem("companyLogo", logoPreview);
-      else await AsyncStorage.removeItem("companyLogo");
-      if (sealPreview) await AsyncStorage.setItem("companySeal", sealPreview);
-      else await AsyncStorage.removeItem("companySeal");
-      if (signaturePreview)
-        await AsyncStorage.setItem("companySignature", signaturePreview);
-      else await AsyncStorage.removeItem("companySignature");
+      if (logoPreview) {
+        const savedLogo = await nativeDb.persistImage(logoPreview);
+        await AsyncStorage.setItem("companyLogo", savedLogo ?? "");
+        setLogoPreview(savedLogo ?? null);
+      } else await AsyncStorage.removeItem("companyLogo");
+      if (sealPreview) {
+        const savedSeal = await nativeDb.persistImage(sealPreview);
+        await AsyncStorage.setItem("companySeal", savedSeal ?? "");
+        setSealPreview(savedSeal ?? null);
+      } else await AsyncStorage.removeItem("companySeal");
+      if (signaturePreview) {
+        const savedSignature = await nativeDb.persistImage(signaturePreview);
+        await AsyncStorage.setItem("companySignature", savedSignature ?? "");
+        setSignaturePreview(savedSignature ?? null);
+      } else await AsyncStorage.removeItem("companySignature");
       await nativeDb.requestCloudBackup();
 
       setExportAlertModal({
@@ -296,9 +329,31 @@ export default function SettingsScreen({
     setPendingConfirmAction(null);
     setExportAlertModal({ show: false, title: "", message: "" });
 
+    if (action === "disconnect") {
+      setGoogleBusy(true);
+      try {
+        await disconnectGoogleAccount();
+        await AsyncStorage.removeItem(`cloudOperationCompleted:${googleAccount?.email ?? "default"}`);
+        setCloudOperationCompleted(false);
+        setGoogleAccount(null);
+        setCloudConflictPending(false);
+      } catch {
+        setExportAlertModal({ show: true, title: "خطا", message: "خطا در خروج از حساب Google Drive", error: true });
+      } finally {
+        setGoogleBusy(false);
+      }
+      return;
+    }
+
     if (action === "restore") {
       setGoogleBusy(true);
       try {
+        setExportAlertModal({
+          show: true,
+          title: "در حال دریافت نسخه پشتیبان",
+          message: "لطفاً تا پایان دریافت و بازیابی اطلاعات صبر کنید.",
+          loading: true,
+        });
         await nativeDb.setCloudBackupHold(true);
         const snapshot = await downloadLatestDriveBackup();
         const hasBackupContent =
@@ -310,15 +365,57 @@ export default function SettingsScreen({
           );
         if (!hasBackupContent) throw new Error("این فایل پشتیبان خالی است؛ برای جلوگیری از جایگزینی اطلاعات، بازیابی متوقف شد.");
         await nativeDb.restoreCloudSnapshot(snapshot);
+        await loadSettings();
         await onDataRestored();
         await nativeDb.completeCloudRestore();
-        setCloudStatus("بازیابی اطلاعات از Google Drive با موفقیت انجام شد.");
+        await AsyncStorage.setItem("localDriveDataInitialized", "true");
+        await AsyncStorage.setItem(`cloudOperationCompleted:${googleAccount?.email ?? "default"}`, "true");
+        setLocalDriveDataInitialized(true);
+        setCloudConflictPending(false);
+        setCloudOperationCompleted(true);
+        setExportAlertModal({ show: true, title: "موفق", message: "بازیابی اطلاعات از Google Drive با موفقیت انجام شد.", success: true });
       } catch (error) {
-        setCloudStatus(
-          error instanceof Error
-            ? error.message
-            : "بازیابی نسخه پشتیبان انجام نشد.",
-        );
+        setExportAlertModal({ show: true, title: "خطا", message: error instanceof Error ? error.message : "بازیابی نسخه پشتیبان انجام نشد.", error: true });
+      } finally {
+        setGoogleBusy(false);
+      }
+      return;
+    }
+
+    if (action === "createDrive" || action === "overwriteDrive") {
+      setGoogleBusy(true);
+      try {
+        await nativeDb.setCloudBackupHold(true);
+        const snapshot = await nativeDb.exportCloudSnapshot();
+        if (!hasCloudSnapshotContent(snapshot)) {
+          throw new Error("اطلاعات محلی خالی است؛ برای جلوگیری از ساخت بکاپ خالی، فایل Drive جایگزین نشد.");
+        }
+        setExportAlertModal({
+          show: true,
+          title: "در حال ایجاد نسخه پشتیبان",
+          message: "لطفاً تا پایان ایجاد نسخه پشتیبان صبر کنید.",
+          loading: true,
+        });
+        const file = await createDriveBackup(snapshot);
+        await nativeDb.completeCloudBackup(snapshot);
+        await AsyncStorage.setItem("localDriveDataInitialized", "true");
+        await AsyncStorage.setItem(`cloudOperationCompleted:${googleAccount?.email ?? "default"}`, "true");
+        setLocalDriveDataInitialized(true);
+        setCloudConflictPending(false);
+        setCloudOperationCompleted(true);
+        setExportAlertModal({
+          show: true,
+          title: "موفق",
+          message: action === "createDrive"
+            ? "نسخه پشتیبان در Google Drive با موفقیت ایجاد شد."
+            : "نسخه Google Drive با اطلاعات این دستگاه با موفقیت جایگزین شد.",
+          success: true,
+        });
+      } catch (error) {
+        // If auto backup was already enabled, let it resume after a failed manual upload.
+        // The persistent enable flag still prevents first-time activation here.
+        await nativeDb.setCloudBackupHold(false);
+        setExportAlertModal({ show: true, title: "خطا", message: error instanceof Error ? error.message : "جایگزینی نسخه Drive انجام نشد.", error: true });
       } finally {
         setGoogleBusy(false);
       }
@@ -408,42 +505,45 @@ export default function SettingsScreen({
             <CustomText style={styles.label}>
               اتصال به Google Drive و پشتیبان‌گیری
             </CustomText>
-            <CustomText style={styles.cloudInfo}>
-              پس از اتصال حساب گوگل، نسخه پشتیبان اطلاعات شما به‌صورت خودکار در همان فایل داخل پوشه Hadman Factor به‌روزرسانی می‌شود.
-              برای بازیابی اطلاعات، حساب گوگل خود را متصل کنید.
-            </CustomText>
+            {!googleAccount && (
+              <CustomText style={styles.cloudInfo}>
+                در صورت خطا در اتصال به Google Drive فقط برای ورود اولیه به حساب از VPN استفاده کنید؛ برای ادامه پشتیبان‌گیری نیازی به VPN نیست.
+              </CustomText>
+            )}
             {googleAccount ? (
               <>
                 <CustomText style={styles.cloudAccount}>
                   متصل:{" "}
                   {googleAccount.email ?? googleAccount.name ?? "حساب گوگل"}
                 </CustomText>
-                <TouchableOpacity
-                  style={styles.cloudButton}
-                  onPress={handleCreateDriveBackup}
-                  disabled={googleBusy}
-                >
-                  <CustomText style={styles.btnText}>
-                    {googleBusy
-                      ? "لطفاً صبر کنید..."
-                      : "تهیه نسخه پشتیبان در Drive"}
-                  </CustomText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.cloudButtonSecondary}
-                  onPress={handlePrepareRestore}
-                  disabled={googleBusy}
-                >
-                  <CustomText style={styles.btnText}>
-                    بازیابی آخرین نسخه پشتیبان
-                  </CustomText>
-                </TouchableOpacity>
+                {localDriveDataInitialized === false && (
+                  <>
+                    <TouchableOpacity
+                      style={styles.cloudButtonSecondary}
+                      onPress={handlePrepareOverwriteDrive}
+                      disabled={googleBusy}
+                    >
+                      <CustomText style={styles.btnText}>
+                        ایجاد نسخه پشتیبان در Google Drive
+                      </CustomText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.cloudButtonSecondary}
+                      onPress={handlePrepareRestore}
+                      disabled={googleBusy}
+                    >
+                      <CustomText style={styles.btnText}>
+                        دریافت نسخه پشتیبان از Google Drive
+                      </CustomText>
+                    </TouchableOpacity>
+                  </>
+                )}
                 <TouchableOpacity
                   style={styles.cloudDisconnect}
                   onPress={handleGoogleDisconnect}
                   disabled={googleBusy}
                 >
-                  <CustomText style={styles.btnText}>قطع اتصال گوگل</CustomText>
+                  <CustomText style={styles.btnText}> خروج از حساب </CustomText>
                 </TouchableOpacity>
               </>
             ) : (
@@ -453,17 +553,9 @@ export default function SettingsScreen({
                 disabled={googleBusy}
               >
                 <CustomText style={styles.btnText}>
-                  {googleBusy ? "در حال اتصال..." : "اتصال حساب گوگل"}
+                  {googleBusy ? "در حال اتصال..." : "ورود به حساب Google Drive"}
                 </CustomText>
               </TouchableOpacity>
-            )}
-            {!!latestBackupLabel && (
-              <CustomText style={styles.cloudInfo}>
-                فایل نسخه پشتیبان: {latestBackupLabel}
-              </CustomText>
-            )}
-            {!!cloudStatus && (
-              <CustomText style={styles.cloudStatus}>{cloudStatus}</CustomText>
             )}
           </LinearGradient>
 
@@ -606,13 +698,15 @@ export default function SettingsScreen({
           message={exportAlertModal.message}
           success={exportAlertModal.success}
           error={exportAlertModal.error}
+          loading={exportAlertModal.loading}
           confirm={exportAlertModal.confirm}
           confirmText={exportAlertModal.confirmText}
           cancelText={exportAlertModal.cancelText}
           onConfirm={confirmReset}
-          onClose={() =>
-            setExportAlertModal({ show: false, title: "", message: "" })
-          }
+          onClose={() => {
+            setPendingConfirmAction(null);
+            setExportAlertModal({ show: false, title: "", message: "" });
+          }}
         />
       </KeyboardAvoidingView>
     </View>
@@ -668,18 +762,11 @@ const styles = StyleSheet.create({
     marginVertical: 7,
   },
   cloudAccount: {
-    color: "#ffffff",
+    color: "#34d399",
     fontSize: 13,
     fontWeight: "700",
     textAlign: "right",
     marginVertical: 8,
-  },
-  cloudStatus: {
-    color: "#ffffff",
-    fontSize: 12,
-    lineHeight: 20,
-    textAlign: "right",
-    marginTop: 10,
   },
   cloudButton: {
     backgroundColor: "#10b981",
