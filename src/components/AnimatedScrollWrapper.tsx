@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { Animated, Dimensions, ScrollViewProps } from 'react-native';
+import { Animated, Dimensions, Easing, ScrollViewProps } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -9,33 +9,39 @@ export interface AnimatedScrollWrapperRef {
 
 interface AnimatedScrollProps extends ScrollViewProps {
   children: React.ReactNode;
-  delay?: number; 
+  delay?: number;
+  duration?: number;
+  smooth?: boolean;
 }
 
 const AnimatedScrollWrapper = forwardRef<AnimatedScrollWrapperRef, AnimatedScrollProps>(
-  ({ children, delay = 0, contentContainerStyle, style, ...rest }, ref) => {
+  ({ children, delay = 0, duration = 250, smooth = false, contentContainerStyle, style, ...rest }, ref) => {
     const slideAnim = useRef(new Animated.Value(width)).current;
+    const enterEasing = smooth ? Easing.out(Easing.cubic) : Easing.linear;
+    const exitEasing = smooth ? Easing.in(Easing.cubic) : Easing.linear;
 
     useEffect(() => {
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 250,
-        delay: delay,
+        duration,
+        delay,
+        easing: enterEasing,
         useNativeDriver: true,
       }).start();
-    }, [slideAnim, delay]);
+    }, [slideAnim, delay, duration, enterEasing]);
 
     useImperativeHandle(ref, () => ({
       close: (callback) => {
         Animated.timing(slideAnim, {
           toValue: width,
-          duration: 250,
+          duration,
+          easing: exitEasing,
           useNativeDriver: true,
-        }).start(() => {
-          if (callback) callback();
+        }).start(({ finished }) => {
+          if (finished && callback) callback();
         });
       }
-    }));
+    }), [slideAnim, duration, exitEasing]);
 
     return (
       <Animated.ScrollView
@@ -47,7 +53,6 @@ const AnimatedScrollWrapper = forwardRef<AnimatedScrollWrapperRef, AnimatedScrol
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled={true}
-        
         {...rest}
       >
         {children}

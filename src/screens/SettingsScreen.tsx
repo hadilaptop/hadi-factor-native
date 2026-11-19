@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   TouchableOpacity,
+  Pressable,
+  Animated,
   StyleSheet,
   Platform,
   KeyboardAvoidingView,
@@ -11,18 +13,28 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ImageUpload from "../components/ImageUpload";
 import Header from "../components/Header";
 import ExportAlertModal from "../components/ExportAlertModal";
-import AnimatedScrollWrapper, {
-  AnimatedScrollWrapperRef,
-} from "../components/AnimatedScrollWrapper";
+import AnimatedScrollWrapper from "../components/AnimatedScrollWrapper";
 
 // کامپوننت‌های سفارشی و توابع
 import CustomText from "../components/CustomText";
 import CustomTextInput from "../components/CustomTextInput";
 import { toPersianDigits } from "../utils/numberUtils";
-import { connectGoogleAccount, disconnectGoogleAccount, getConnectedGoogleAccount } from "../services/googleAuth";
-import type { GoogleAccount } from "../services/googleAuth";
-import { createDriveBackup, downloadLatestDriveBackup, getLatestDriveBackupInfo } from "../services/googleDrive";
 import { nativeDb } from "../services/database";
+
+
+type ScalePressableProps = React.PropsWithChildren<{
+  onPress: () => void;
+  disabled?: boolean;
+  style?: any;
+}>;
+
+function ScalePressable({ children, onPress, disabled, style }: ScalePressableProps) {
+  return (
+    <Pressable onPress={onPress} disabled={disabled} style={style}>
+      {children}
+    </Pressable>
+  );
+}
 
 interface SettingsScreenProps {
   onNavigate: (screen: string) => void;
@@ -35,8 +47,6 @@ export default function SettingsScreen({
   returnScreen,
   onDataRestored,
 }: SettingsScreenProps) {
-  const scrollRef = useRef<AnimatedScrollWrapperRef>(null);
-
   const [theme, setTheme] = useState("blue");
   const [companyName, setCompanyName] = useState("");
   const [companyAddress, setCompanyAddress] = useState("");
@@ -45,16 +55,7 @@ export default function SettingsScreen({
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [sealPreview, setSealPreview] = useState<string | null>(null);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
-  const [googleAccount, setGoogleAccount] = useState<GoogleAccount | null>(
-    () => getConnectedGoogleAccount(),
-  );
-  const [googleBusy, setGoogleBusy] = useState(false);
-  const [cloudOperationCompleted, setCloudOperationCompleted] = useState(false);
-  const [localDriveDataInitialized, setLocalDriveDataInitialized] = useState<boolean | null>(null);
-  const [cloudConflictPending, setCloudConflictPending] = useState(false);
-  const [pendingConfirmAction, setPendingConfirmAction] = useState<
-    "reset" | "restore" | "createDrive" | "overwriteDrive" | "disconnect" | null
-  >(null);
+  const [pendingConfirmAction, setPendingConfirmAction] = useState<"reset" | null>(null);
   const [exportAlertModal, setExportAlertModal] = useState<{
     show: boolean;
     title: string;
@@ -70,169 +71,6 @@ export default function SettingsScreen({
     title: "",
     message: "",
   });
-
-  const hasCloudSnapshotContent = (
-    snapshot: Awaited<ReturnType<typeof nativeDb.exportCloudSnapshot>>,
-  ): boolean =>
-    snapshot.customers.length > 0 ||
-    snapshot.invoices.length > 0 ||
-    snapshot.payments.length > 0 ||
-    Object.entries(snapshot.settings ?? {}).some(
-      ([key, value]) => key !== "invoiceTheme" && value.trim().length > 0,
-    );
-
-  const loadLocalDriveState = async () => {
-    const account = googleAccount;
-    if (!account) {
-      setCloudOperationCompleted(false);
-      setLocalDriveDataInitialized(null);
-      setCloudConflictPending(false);
-      return;
-    }
-
-    try {
-      const completionKey =
-        "cloudOperationCompleted:" + (account.email ?? "default");
-      const [localDataReady, completed] = await Promise.all([
-        AsyncStorage.getItem("localDriveDataInitialized"),
-        AsyncStorage.getItem(completionKey),
-      ]);
-      const isLocalDataReady =
-        localDataReady === "true" || completed === "true";
-      setLocalDriveDataInitialized(isLocalDataReady);
-      setCloudOperationCompleted(isLocalDataReady);
-      setCloudConflictPending(false);
-    } catch {
-      setLocalDriveDataInitialized(false);
-      setCloudOperationCompleted(false);
-      setCloudConflictPending(false);
-    }
-  };
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadLocalDriveState();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleGoogleConnect = async () => {
-    setLocalDriveDataInitialized(null);
-    setGoogleBusy(true);
-    try {
-      const account = await connectGoogleAccount();
-      setGoogleAccount(account);
-      // Preserve local-first behavior for this device and resume the already
-      // enabled automatic backup without querying Drive for existing data.
-      const completionKey = `cloudOperationCompleted:${account.email ?? "default"}`;
-      const [localDataReady, completed] = await Promise.all([
-        AsyncStorage.getItem("localDriveDataInitialized"),
-        AsyncStorage.getItem(completionKey),
-      ]);
-      const isLocalDataReady =
-        localDataReady === "true" || completed === "true";
-      setLocalDriveDataInitialized(isLocalDataReady);
-      setCloudOperationCompleted(isLocalDataReady);
-      setCloudConflictPending(false);
-      if (isLocalDataReady) {
-        await AsyncStorage.setItem("localDriveDataInitialized", "true");
-        await nativeDb.initializeCloudBackupSafety();
-      } else {
-        await nativeDb.setCloudBackupHold(true);
-      }
-    } catch {
-      setExportAlertModal({ show: true, title: "خطا", message: "خطا در ورود به حساب Google Drive", error: true });
-    } finally {
-      setGoogleBusy(false);
-    }
-  };
-
-  const handleGoogleDisconnect = () => {
-    setPendingConfirmAction("disconnect");
-    setExportAlertModal({
-      show: true,
-      title: "خروج از حساب Google Drive",
-      message: "آیا مطمئن هستید که می‌خواهید از حساب Google Drive خارج شوید؟",
-      confirm: true,
-      confirmText: "خروج از حساب",
-      cancelText: "انصراف",
-    });
-  };
-
-  const handlePrepareRestore = async () => {
-    setCloudOperationCompleted(false);
-    setGoogleBusy(true);
-    setExportAlertModal({
-      show: true,
-      title: "در حال بررسی نسخه پشتیبان",
-      message: "لطفاً تا دریافت اطلاعات Google Drive صبر کنید.",
-      loading: true,
-    });
-    try {
-      const backup = await getLatestDriveBackupInfo();
-      if (!backup) {
-        throw new Error("هنوز نسخه پشتیبانی در Google Drive وجود ندارد.");
-      }
-      setPendingConfirmAction("restore");
-      setExportAlertModal({
-        show: true,
-        title: "جایگزینی اطلاعات گوشی با نسخه Google Drive",
-        message:
-          "هشدار مهم: با تأیید، تمام اطلاعات فعلی این دستگاه از جمله مشتریان، فاکتورها، دریافتی‌ها، تصاویر و تنظیمات پاک می‌شود و نسخه Google Drive جایگزین آن خواهد شد. این عملیات قابل بازگشت نیست.",
-        confirm: true,
-        confirmText: "بازیابی اطلاعات",
-        cancelText: "انصراف",
-      });
-    } catch (error) {
-      setExportAlertModal({ show: true, title: "خطا", message: error instanceof Error ? error.message : "نسخه پشتیبان پیدا نشد.", error: true });
-    } finally {
-      setGoogleBusy(false);
-    }
-  };
-
-  const handlePrepareOverwriteDrive = async () => {
-    setCloudOperationCompleted(false);
-    setGoogleBusy(true);
-    setExportAlertModal({
-      show: true,
-      title: "در حال بررسی Google Drive",
-      message: "لطفاً تا بررسی وضعیت نسخه پشتیبان صبر کنید.",
-      loading: true,
-    });
-    try {
-      const backup = await getLatestDriveBackupInfo();
-      if (!backup) {
-        const snapshot = await nativeDb.exportCloudSnapshot();
-        if (!hasCloudSnapshotContent(snapshot)) {
-          throw new Error("اطلاعاتی برای تهیه نسخه پشتیبان وجود ندارد.");
-        }
-        setPendingConfirmAction("createDrive");
-        setExportAlertModal({
-          show: true,
-          title: "ایجاد نسخه پشتیبان",
-          message: "نسخه پشتیبان اطلاعات این دستگاه در Google Drive ایجاد شود؟",
-          confirm: true,
-          confirmText: "ایجاد نسخه پشتیبان",
-          cancelText: "انصراف",
-        });
-        return;
-      }
-      setPendingConfirmAction("overwriteDrive");
-      setExportAlertModal({
-        show: true,
-        title: "جایگزینی نسخه Google Drive با اطلاعات گوشی",
-        message:
-          "هشدار مهم: با تأیید، تمام محتوای فایل پشتیبان فعلی Google Drive پاک و با اطلاعات همین دستگاه جایگزین می‌شود. نسخه قبلی قابل بازیابی نخواهد بود.",
-        confirm: true,
-        confirmText: "جایگزینی کامل فایل Drive",
-        cancelText: "انصراف",
-      });
-    } catch (error) {
-      setExportAlertModal({ show: true, title: "خطا", message: error instanceof Error ? error.message : "بررسی نسخه Drive انجام نشد.", error: true });
-    } finally {
-      setGoogleBusy(false);
-    }
-  };
 
   const loadSettings = async () => {
     try {
@@ -262,12 +100,7 @@ export default function SettingsScreen({
     }
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadSettings();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
+  useEffect(() => { void loadSettings(); }, []);
 
   const handleClose = () => {
     onNavigate(returnScreen);
@@ -329,99 +162,6 @@ export default function SettingsScreen({
     setPendingConfirmAction(null);
     setExportAlertModal({ show: false, title: "", message: "" });
 
-    if (action === "disconnect") {
-      setGoogleBusy(true);
-      try {
-        await disconnectGoogleAccount();
-        await AsyncStorage.removeItem(`cloudOperationCompleted:${googleAccount?.email ?? "default"}`);
-        setCloudOperationCompleted(false);
-        setGoogleAccount(null);
-        setCloudConflictPending(false);
-      } catch {
-        setExportAlertModal({ show: true, title: "خطا", message: "خطا در خروج از حساب Google Drive", error: true });
-      } finally {
-        setGoogleBusy(false);
-      }
-      return;
-    }
-
-    if (action === "restore") {
-      setGoogleBusy(true);
-      try {
-        setExportAlertModal({
-          show: true,
-          title: "در حال دریافت نسخه پشتیبان",
-          message: "لطفاً تا پایان دریافت و بازیابی اطلاعات صبر کنید.",
-          loading: true,
-        });
-        await nativeDb.setCloudBackupHold(true);
-        const snapshot = await downloadLatestDriveBackup();
-        const hasBackupContent =
-          snapshot.customers.length > 0 ||
-          snapshot.invoices.length > 0 ||
-          snapshot.payments.length > 0 ||
-          Object.entries(snapshot.settings ?? {}).some(
-            ([key, value]) => key !== "invoiceTheme" && typeof value === "string" && value.trim().length > 0,
-          );
-        if (!hasBackupContent) throw new Error("این فایل پشتیبان خالی است؛ برای جلوگیری از جایگزینی اطلاعات، بازیابی متوقف شد.");
-        await nativeDb.restoreCloudSnapshot(snapshot);
-        await loadSettings();
-        await onDataRestored();
-        await nativeDb.completeCloudRestore();
-        await AsyncStorage.setItem("localDriveDataInitialized", "true");
-        await AsyncStorage.setItem(`cloudOperationCompleted:${googleAccount?.email ?? "default"}`, "true");
-        setLocalDriveDataInitialized(true);
-        setCloudConflictPending(false);
-        setCloudOperationCompleted(true);
-        setExportAlertModal({ show: true, title: "موفق", message: "بازیابی اطلاعات از Google Drive با موفقیت انجام شد.", success: true });
-      } catch (error) {
-        setExportAlertModal({ show: true, title: "خطا", message: error instanceof Error ? error.message : "بازیابی نسخه پشتیبان انجام نشد.", error: true });
-      } finally {
-        setGoogleBusy(false);
-      }
-      return;
-    }
-
-    if (action === "createDrive" || action === "overwriteDrive") {
-      setGoogleBusy(true);
-      try {
-        await nativeDb.setCloudBackupHold(true);
-        const snapshot = await nativeDb.exportCloudSnapshot();
-        if (!hasCloudSnapshotContent(snapshot)) {
-          throw new Error("اطلاعات محلی خالی است؛ برای جلوگیری از ساخت بکاپ خالی، فایل Drive جایگزین نشد.");
-        }
-        setExportAlertModal({
-          show: true,
-          title: "در حال ایجاد نسخه پشتیبان",
-          message: "لطفاً تا پایان ایجاد نسخه پشتیبان صبر کنید.",
-          loading: true,
-        });
-        const file = await createDriveBackup(snapshot);
-        await nativeDb.completeCloudBackup(snapshot);
-        await AsyncStorage.setItem("localDriveDataInitialized", "true");
-        await AsyncStorage.setItem(`cloudOperationCompleted:${googleAccount?.email ?? "default"}`, "true");
-        setLocalDriveDataInitialized(true);
-        setCloudConflictPending(false);
-        setCloudOperationCompleted(true);
-        setExportAlertModal({
-          show: true,
-          title: "موفق",
-          message: action === "createDrive"
-            ? "نسخه پشتیبان در Google Drive با موفقیت ایجاد شد."
-            : "نسخه Google Drive با اطلاعات این دستگاه با موفقیت جایگزین شد.",
-          success: true,
-        });
-      } catch (error) {
-        // If auto backup was already enabled, let it resume after a failed manual upload.
-        // The persistent enable flag still prevents first-time activation here.
-        await nativeDb.setCloudBackupHold(false);
-        setExportAlertModal({ show: true, title: "خطا", message: error instanceof Error ? error.message : "جایگزینی نسخه Drive انجام نشد.", error: true });
-      } finally {
-        setGoogleBusy(false);
-      }
-      return;
-    }
-
     setTheme("blue");
     setCompanyName("");
     setCompanyAddress("");
@@ -476,9 +216,9 @@ export default function SettingsScreen({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <AnimatedScrollWrapper
-          ref={scrollRef}
+          style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
-          delay={0}
+          showsVerticalScrollIndicator={false}
         >
           <LinearGradient
             colors={["#0f4c75", "#3282b8"]}
@@ -496,69 +236,9 @@ export default function SettingsScreen({
             </View>
           </LinearGradient>
 
-          <LinearGradient
-            colors={["#0f4c75", "#3282b8"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.card}
-          >
-            <CustomText style={styles.label}>
-              اتصال به Google Drive و پشتیبان‌گیری
-            </CustomText>
-            {!googleAccount && (
-              <CustomText style={styles.cloudInfo}>
-                در صورت خطا در اتصال به Google Drive فقط برای ورود اولیه به حساب از VPN استفاده کنید؛ برای ادامه پشتیبان‌گیری نیازی به VPN نیست.
-              </CustomText>
-            )}
-            {googleAccount ? (
-              <>
-                <CustomText style={styles.cloudAccount}>
-                  متصل:{" "}
-                  {googleAccount.email ?? googleAccount.name ?? "حساب گوگل"}
-                </CustomText>
-                {localDriveDataInitialized === false && (
-                  <>
-                    <TouchableOpacity
-                      style={styles.cloudButtonSecondary}
-                      onPress={handlePrepareOverwriteDrive}
-                      disabled={googleBusy}
-                    >
-                      <CustomText style={styles.btnText}>
-                        ایجاد نسخه پشتیبان در Google Drive
-                      </CustomText>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.cloudButtonSecondary}
-                      onPress={handlePrepareRestore}
-                      disabled={googleBusy}
-                    >
-                      <CustomText style={styles.btnText}>
-                        دریافت نسخه پشتیبان از Google Drive
-                      </CustomText>
-                    </TouchableOpacity>
-                  </>
-                )}
-                <TouchableOpacity
-                  style={styles.cloudDisconnect}
-                  onPress={handleGoogleDisconnect}
-                  disabled={googleBusy}
-                >
-                  <CustomText style={styles.btnText}> خروج از حساب </CustomText>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <TouchableOpacity
-                style={styles.cloudButton}
-                onPress={handleGoogleConnect}
-                disabled={googleBusy}
-              >
-                <CustomText style={styles.btnText}>
-                  {googleBusy ? "در حال اتصال..." : "ورود به حساب Google Drive"}
-                </CustomText>
-              </TouchableOpacity>
-            )}
-          </LinearGradient>
 
+
+          <ScalePressable onPress={() => onNavigate("googleDriveSettings")}><LinearGradient colors={["#0f4c75","#3282b8"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.card}><CustomText style={styles.label}>مدیریت Google Drive</CustomText><CustomText style={styles.cloudInfo}>ورود به حساب، تهیه نسخه پشتیبان و بازیابی اطلاعات</CustomText></LinearGradient></ScalePressable>
           <LinearGradient
             colors={["#0f4c75", "#3282b8"]}
             start={{ x: 0, y: 0 }}
@@ -615,64 +295,66 @@ export default function SettingsScreen({
               />
             </View>
 
-            <View style={styles.inputGroup}>
+            <View style={styles.imageUploadsRow}>
               <ImageUpload
-                label="لوگوی شرکت :"
+                wrapperStyle={styles.imageUploadItem}
+                label="لوگو"
+                labelStyle={styles.imageUploadLabel}
                 value={logoPreview}
                 onChange={setLogoPreview}
                 onError={(message) =>
                   setExportAlertModal({ show: true, title: "خطا", message })
                 }
-                imageWidth={130}
-                imageHeight={130}
-                uploadText="انتخاب لوگو"
-                removeText="حذف لوگو"
-                uploadButtonStyle={styles.logoUploadBtn}
-                uploadTextStyle={styles.logoUploadText}
-                previewBoxStyle={styles.logoPreviewBox}
-                imageStyle={styles.logoPreviewImg}
-                removeButtonStyle={styles.logoRemoveBtn}
-                removeTextStyle={styles.logoRemoveBtnText}
+                imageWidth={76}
+                imageHeight={76}
+                uploadText="انتخاب"
+                removeText="حذف"
+                uploadButtonStyle={styles.imageUploadButton}
+                uploadTextStyle={styles.imageUploadText}
+                previewBoxStyle={styles.imagePreviewBox}
+                imageStyle={styles.imagePreview}
+                removeButtonStyle={styles.imageRemoveButton}
+                removeTextStyle={styles.imageRemoveText}
               />
-            </View>
-            <View style={styles.inputGroup}>
               <ImageUpload
-                label="مهر شرکت :"
+                wrapperStyle={styles.imageUploadItem}
+                label="مهر"
+                labelStyle={styles.imageUploadLabel}
                 value={sealPreview}
                 onChange={setSealPreview}
                 onError={(message) =>
                   setExportAlertModal({ show: true, title: "خطا", message })
                 }
-                imageWidth={130}
-                imageHeight={130}
-                uploadText="انتخاب مهر"
-                removeText="حذف مهر"
-                uploadButtonStyle={styles.logoUploadBtn}
-                uploadTextStyle={styles.logoUploadText}
-                previewBoxStyle={styles.logoPreviewBox}
-                imageStyle={styles.logoPreviewImg}
-                removeButtonStyle={styles.logoRemoveBtn}
-                removeTextStyle={styles.logoRemoveBtnText}
+                imageWidth={76}
+                imageHeight={76}
+                uploadText="انتخاب"
+                removeText="حذف"
+                uploadButtonStyle={styles.imageUploadButton}
+                uploadTextStyle={styles.imageUploadText}
+                previewBoxStyle={styles.imagePreviewBox}
+                imageStyle={styles.imagePreview}
+                removeButtonStyle={styles.imageRemoveButton}
+                removeTextStyle={styles.imageRemoveText}
               />
-            </View>
-            <View style={styles.inputGroup}>
               <ImageUpload
-                label="امضای مدیر :"
+                wrapperStyle={styles.imageUploadItem}
+                label="امضای مدیر"
+                labelStyle={styles.imageUploadLabel}
                 value={signaturePreview}
                 onChange={setSignaturePreview}
                 onError={(message) =>
                   setExportAlertModal({ show: true, title: "خطا", message })
                 }
-                imageWidth={130}
-                imageHeight={130}
-                uploadText="انتخاب امضا"
-                removeText="حذف امضا"
-                uploadButtonStyle={styles.logoUploadBtn}
-                uploadTextStyle={styles.logoUploadText}
-                previewBoxStyle={styles.logoPreviewBox}
-                imageStyle={styles.logoPreviewImg}
-                removeButtonStyle={styles.logoRemoveBtn}
-                removeTextStyle={styles.logoRemoveBtnText}
+                imageWidth={76}
+                imageHeight={76}
+                uploadText="انتخاب"
+                removeText="حذف"
+                uploadButtonStyle={styles.imageUploadButton}
+                uploadTextStyle={styles.imageUploadText}
+                previewBoxStyle={styles.imagePreviewBox}
+                imageStyle={styles.imagePreview}
+                removeButtonStyle={styles.imageRemoveButton}
+                removeTextStyle={styles.imageRemoveText}
               />
             </View>
           </LinearGradient>
@@ -717,12 +399,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#eaf6fc",
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 100,
   },
   scrollContent: {
     paddingVertical: 10,
@@ -816,6 +492,75 @@ const styles = StyleSheet.create({
   themeBtnActive: {
     borderColor: "#ffffff",
     transform: [{ scale: 1.08 }],
+  },
+  imageUploadsRow: {
+    flexDirection: "row-reverse",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 8,
+  },
+  imageUploadItem: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
+  },
+  imageUploadLabel: {
+    width: "100%",
+    color: "#ffffff",
+    fontSize: 12,
+    textAlign: "center",
+    paddingHorizontal: 0,
+    marginBottom: 6,
+  },
+  imageUploadButton: {
+    width: 76,
+    height: 76,
+    alignSelf: "center",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.4)",
+    borderStyle: "dashed",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  imageUploadText: {
+    color: "#ffffff",
+    fontSize: 12,
+  },
+  imagePreviewBox: {
+    width: "100%",
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    padding: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+    borderStyle: "dashed",
+    gap: 6,
+    marginTop: 0,
+  },
+  imagePreview: {
+    width: 76,
+    height: 76,
+    borderRadius: 8,
+    resizeMode: "contain",
+  },
+  imageRemoveButton: {
+    width: "100%",
+    backgroundColor: "#ef4444",
+    paddingVertical: 6,
+    paddingHorizontal: 3,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  imageRemoveText: {
+    color: "#ffffff",
+    fontSize: 11,
   },
   logoUploadBtn: {
     alignSelf: "center",

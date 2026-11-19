@@ -4,6 +4,7 @@ import { getConnectedGoogleAccount } from "./googleAuth";
 import { createDriveBackup } from "./googleDrive";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
+import { parseMigrationArray, parsePaymentMigrationArray } from "./migrationValidation";
 
 type EntityTable = "customers" | "invoices" | "payments";
 
@@ -110,26 +111,28 @@ class NativeDatabaseService {
         NEXT_CUSTOMER_CODE_KEY,
       ]);
 
-    const parseArray = (raw: string | null): JsonRecord[] => {
-      if (!raw) return [];
-      try {
-        const parsed: unknown = JSON.parse(raw);
-        return Array.isArray(parsed)
-          ? parsed.filter(
-              (item): item is JsonRecord =>
-                Boolean(item) && typeof item === "object" && "id" in item,
-            )
-          : [];
-      } catch {
-        return [];
-      }
-    };
+    const customers = parseMigrationArray(customersRaw[1], CUSTOMER_KEY, INVOICE_KEY);
+    const invoices = parseMigrationArray(invoicesRaw[1], INVOICE_KEY, INVOICE_KEY);
+    // A valid empty v2 array is authoritative. Legacy data is read only
+    // when the v2 key is absent (null), never when its contents are invalid.
+    const paymentSource = parsePaymentMigrationArray(
+      paymentsRaw[1],
+      legacyPaymentsRaw[1],
+      PAYMENT_KEY,
+      LEGACY_PAYMENT_KEY,
+      INVOICE_KEY,
+    );
 
-    const customers = parseArray(customersRaw[1]);
-    const invoices = parseArray(invoicesRaw[1]);
-    const payments = parseArray(paymentsRaw[1]);
-    const legacyPayments = parseArray(legacyPaymentsRaw[1]);
-    const paymentSource = paymentsRaw[1] ? payments : legacyPayments;
+    if (nextCode[1] !== null) {
+      const parsedNextCode = Number(nextCode[1]);
+      if (
+        nextCode[1].trim().length === 0 ||
+        !Number.isSafeInteger(parsedNextCode) ||
+        parsedNextCode < 1001
+      ) {
+        throw new Error(`مقدار کد بعدی مشتری در «${NEXT_CUSTOMER_CODE_KEY}» معتبر نیست؛ مهاجرت SQLite متوقف شد.`);
+      }
+    }
 
     await db.withTransactionAsync(async () => {
       for (const customer of customers) {

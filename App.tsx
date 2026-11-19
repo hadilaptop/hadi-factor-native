@@ -9,6 +9,7 @@ import AccountScreen from './src/screens/AccountScreen';
 import CustomersScreen from './src/screens/CustomersScreen';
 import InvoicesScreen from './src/screens/InvoiceScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import GoogleDriveSettingsScreen from './src/screens/GoogleDriveSettingsScreen';
 import CustomerLedger from './src/screens/CustomerLedger';
 import CustomerFullStatement from './src/screens/CustomerFullStatement';
 import CustomerPayment from './src/screens/CustomerPayment';
@@ -288,6 +289,23 @@ export default function App() {
           <SettingsScreen
             onNavigate={setCurrentScreen}
             returnScreen={settingsReturnScreen}
+            onDataRestored={async () => {
+              const [savedCustomers, savedInvoices, savedPayments] =
+                await Promise.all([
+                  getCustomers(),
+                  getInvoices(),
+                  getPayments(),
+                ]);
+              setCustomers(savedCustomers);
+              setInvoices(savedInvoices);
+              setPayments(savedPayments);
+            }}
+          />
+        );
+      case "googleDriveSettings":
+        return (
+          <GoogleDriveSettingsScreen
+            onNavigate={setCurrentScreen}
             onDataRestored={async () => {
               const [savedCustomers, savedInvoices, savedPayments] =
                 await Promise.all([

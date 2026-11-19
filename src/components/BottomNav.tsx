@@ -44,7 +44,7 @@ export default function BottomNav({ activeTab, onNavigate }: BottomNavProps) {
           {/* سایز آیکون از 28 به 24 تغییر کرد */}
           <Ionicons name="home" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={[styles.navText, { marginTop: 6, color: '#fff', fontWeight: 'bold' }]}>صفحه اصلی</Text>
+        <Text style={[styles.navText, { marginTop: 6 }, activeTab === 'dashboard' && styles.navTextActive]}>صفحه اصلی</Text>
       </View>
 
       {/* ۴. ثبت دریافتی (سمت چپ) */}

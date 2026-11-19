@@ -3,7 +3,7 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Platform,
   Animated,
   Dimensions,
@@ -41,6 +41,9 @@ const [currentDate] = useState(() => {
     return `${weekdayName}، ${toPersianDigits(jDate.jd)} ${monthName} ${toPersianDigits(jDate.jy)}`;
   });
 
+  const [firstCardPressed, setFirstCardPressed] = useState(false);
+  const [secondCardPressed, setSecondCardPressed] = useState(false);
+  const [thirdCardPressed, setThirdCardPressed] = useState(false);
   const displayCustomerCount = toPersianDigits(customerCount || 0);
   const cardsAnim = useRef(new Animated.Value(width)).current;
 
@@ -76,7 +79,12 @@ const [currentDate] = useState(() => {
           <View style={styles.dashContent}>
             <View style={styles.dashGrid}>
               
-              <TouchableOpacity activeOpacity={0.8} onPress={() => handleNavigate("invoice")} style={styles.cardWrapper}>
+              <Pressable
+                onPress={() => handleNavigate("invoice")}
+                onPressIn={() => setFirstCardPressed(true)}
+                onPressOut={() => setFirstCardPressed(false)}
+                style={[styles.cardWrapper, firstCardPressed && styles.cardPressed]}
+              >
                 <LinearGradient
                   colors={['#3282b8', '#0d2b43']}
                   start={{ x: 0, y: 0 }}
@@ -94,9 +102,14 @@ const [currentDate] = useState(() => {
                     <CustomText style={styles.cardDesc}>صدور پیش‌فاکتور و فاکتور فروش</CustomText>
                   </View>
                 </LinearGradient>
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity activeOpacity={0.8} onPress={() => handleNavigate("customers")} style={styles.cardWrapper}>
+              <Pressable
+                onPress={() => handleNavigate("customers")}
+                onPressIn={() => setSecondCardPressed(true)}
+                onPressOut={() => setSecondCardPressed(false)}
+                style={[styles.cardWrapper, secondCardPressed && styles.cardPressed]}
+              >
                 <LinearGradient
                   colors={['#0d2b43', '#0f4c75']}
                   start={{ x: 0, y: 0 }}
@@ -116,9 +129,14 @@ const [currentDate] = useState(() => {
                     <CustomText style={styles.cardDesc}>مشاهده صورتحساب و پرداختی‌ها</CustomText>
                   </View>
                 </LinearGradient>
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity activeOpacity={0.8} onPress={() => handleNavigate("newAccount")} style={styles.cardWrapper}>
+              <Pressable
+                onPress={() => handleNavigate("newAccount")}
+                onPressIn={() => setThirdCardPressed(true)}
+                onPressOut={() => setThirdCardPressed(false)}
+                style={[styles.cardWrapper, thirdCardPressed && styles.cardPressed]}
+              >
                 <LinearGradient
                   colors={['#0f4c75', '#3282b8']}
                   start={{ x: 0, y: 0 }}
@@ -136,7 +154,7 @@ const [currentDate] = useState(() => {
                     <CustomText style={styles.cardDesc}>افزودن اطلاعات برای صدور فاکتور</CustomText>
                   </View>
                 </LinearGradient>
-              </TouchableOpacity>
+              </Pressable>
 
             </View>
           </View>
@@ -193,6 +211,9 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     width: '100%',
+  },
+  cardPressed: {
+    transform: [{ scale: 0.97 }],
   },
   dashCard: {
     width: '90%',
